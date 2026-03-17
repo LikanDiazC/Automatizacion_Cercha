@@ -62,6 +62,7 @@ def calcular_cortes(solicitud: schemas.SolicitudOptimizacion, db: Session = Depe
         for retazo in plancha["retazos_utiles"]:
             
             codigo_retazo = f"RET-{int(retazo['ancho'])}x{int(retazo['largo'])}-{str(uuid.uuid4())[:4]}"
+            retazo["sku"] = codigo_retazo
             
             nuevo_articulo_retazo = Articulo(
                 codigo_sku=codigo_retazo,

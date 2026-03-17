@@ -16,13 +16,13 @@ def generar_svg(datos_json, archivo_salida="plano_corte.html"):
         
         # Dibujamos las piezas útiles (en color madera clara)
         for pieza in plancha["piezas"]:
-            html += f"<rect x='{pieza['x']}' y='{pieza['y']}' width='{pieza['ancho']}' height='{pieza['largo']}' fill='#f4e3c5' stroke='#8b5a2b' stroke-width='4' />"
+            html += f"<rect x='{pieza['x']}' y='{pieza['y']}' width='{pieza['largo']}' height='{pieza['ancho']}' fill='#f4e3c5' stroke='#8b5a2b' stroke-width='4' />"
             html += f"<text x='{pieza['x'] + 10}' y='{pieza['y'] + 30}' fill='#333' font-size='24' font-weight='bold'>{pieza['id_pieza']}</text>"
-            html += f"<text x='{pieza['x'] + 10}' y='{pieza['y'] + 60}' fill='#666' font-size='20'>{pieza['ancho']} x {pieza['largo']} mm</text>"
+            html += f"<text x='{pieza['x'] + 10}' y='{pieza['y'] + 60}' fill='#666' font-size='20'>{pieza['largo']} x {pieza['ancho']} mm</text>"
 
         # Dibujamos los retazos que guardamos (en color verde translúcido)
         for retazo in plancha["retazos_utiles"]:
-            html += f"<rect x='{retazo['x']}' y='{retazo['y']}' width='{retazo['ancho']}' height='{retazo['largo']}' fill='rgba(144, 238, 144, 0.5)' stroke='#006400' stroke-width='4' stroke-dasharray='10,10' />"
+            html += f"<rect x='{retazo['x']}' y='{retazo['y']}' width='{retazo['largo']}' height='{retazo['ancho']}' fill='rgba(144, 238, 144, 0.5)' stroke='#006400' stroke-width='4' stroke-dasharray='10,10' />"
             html += f"<text x='{retazo['x'] + 10}' y='{retazo['y'] + 30}' fill='#006400' font-size='24' font-weight='bold'>{retazo['id_pieza']}</text>"
             html += f"<text x='{retazo['x'] + 10}' y='{retazo['y'] + 60}' fill='#006400' font-size='20'>Guardado en BD</text>"
 

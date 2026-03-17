@@ -1,7 +1,17 @@
-import { useState } from 'react';
-import { 
-  Card, CardContent, Typography, TextField, Button, Grid, 
-  Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Box, Divider 
+﻿import { useState } from 'react';
+import {
+  Box,
+  Paper,
+  Typography,
+  TextField,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Divider,
+  Chip
 } from '@mui/material';
 import axios from 'axios';
 
@@ -20,9 +30,9 @@ function Cortes() {
     const a = parseFloat(nuevaPieza.ancho);
     const c = parseInt(nuevaPieza.cantidad, 10);
 
-    if (isNaN(l) || isNaN(a) || isNaN(c) || c <= 0) return;
+    if (Number.isNaN(l) || Number.isNaN(a) || Number.isNaN(c) || c <= 0) return;
     if (l > plancha.largo || a > plancha.ancho) {
-      alert(`La pieza excede las dimensiones de la plancha.`);
+      alert('La pieza excede las dimensiones de la plancha.');
       return;
     }
 
@@ -30,178 +40,342 @@ function Cortes() {
     setNuevaPieza({ id_pieza: '', largo: '', ancho: '', cantidad: 1 });
   };
 
+  const handleEliminarPieza = (index) => {
+    setPiezas((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleOptimizar = () => {
     if (piezas.length === 0) return;
-    const payload = { largo_plancha: plancha.largo, ancho_plancha: plancha.ancho, grosor_sierra: plancha.grosor_sierra, piezas };
+    const payload = {
+      largo_plancha: plancha.largo,
+      ancho_plancha: plancha.ancho,
+      grosor_sierra: plancha.grosor_sierra,
+      piezas
+    };
 
-    axios.post('http://localhost:8000/api/mrp/optimizar-cortes', payload)
+    axios
+      .post('http://localhost:8000/api/mrp/optimizar-cortes', payload)
       .then((respuesta) => setResultadoCorte(respuesta.data))
       .catch((error) => console.error(error));
   };
 
+  const totalPiezas = piezas.reduce((acc, pieza) => acc + pieza.cantidad, 0);
+  const totalTableros = resultadoCorte?.planchas_usadas || 0;
+  const totalRetazos = resultadoCorte
+    ? (resultadoCorte.cortes || []).reduce((acc, planchaData) => acc + (planchaData.retazos_utiles || []).length, 0)
+    : 0;
+
   return (
-    <Grid container spacing={3} sx={{ height: 'calc(100vh - 100px)' }}>
-      
-      {/* -------------------------------------------------------------
-          COLUMNA IZQUIERDA: CONTROLES (30% DEL ANCHO)
-      ------------------------------------------------------------- */}
-      <Grid item xs={12} lg={3} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        
-        {/* PANEL DE CONFIGURACIÓN */}
-        <Card sx={{ borderRadius: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
-          <CardContent>
-            <Typography variant="subtitle2" sx={{ color: '#64748b', fontWeight: 'bold', mb: 2, textTransform: 'uppercase' }}>
-              Parámetros del Tablero
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', lg: '340px 1fr' },
+        gap: 2.5,
+        alignItems: 'stretch',
+        height: '100%',
+        minHeight: 0
+      }}
+    >
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+        <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+          <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', mb: 2 }}>
+            Parámetros del tablero
+          </Typography>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' },
+              gap: 1.5
+            }}
+          >
+            <TextField label="Largo (mm)" name="largo" type="number" value={plancha.largo} onChange={handlePlanchaChange} />
+            <TextField label="Ancho (mm)" name="ancho" type="number" value={plancha.ancho} onChange={handlePlanchaChange} />
+            <TextField
+              label="Kerf / Grosor de sierra (mm)"
+              name="grosor_sierra"
+              type="number"
+              value={plancha.grosor_sierra}
+              onChange={handlePlanchaChange}
+              sx={{ gridColumn: '1 / -1' }}
+            />
+          </Box>
+        </Paper>
+
+        <Paper sx={{ p: 2.5, borderRadius: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box>
+            <Typography variant="subtitle2" sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>
+              Componentes a cortar
             </Typography>
-            <Grid container spacing={1.5}>
-              <Grid item xs={6}><TextField size="small" fullWidth label="Largo (mm)" name="largo" type="number" value={plancha.largo} onChange={handlePlanchaChange} /></Grid>
-              <Grid item xs={6}><TextField size="small" fullWidth label="Ancho (mm)" name="ancho" type="number" value={plancha.ancho} onChange={handlePlanchaChange} /></Grid>
-              <Grid item xs={12}><TextField size="small" fullWidth label="Grosor Sierra / Kerf (mm)" name="grosor_sierra" type="number" value={plancha.grosor_sierra} onChange={handlePlanchaChange} /></Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-
-        {/* PANEL DE INGRESO DE PIEZAS */}
-        <Card sx={{ borderRadius: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-          <CardContent sx={{ display: 'flex', flexDirection: 'column', height: '100%', p: 0 }}>
-            <Box sx={{ p: 2 }}>
-              <Typography variant="subtitle2" sx={{ color: '#64748b', fontWeight: 'bold', mb: 2, textTransform: 'uppercase' }}>
-                Lista de Componentes
-              </Typography>
-              <Grid container spacing={1.5}>
-                <Grid item xs={12}><TextField size="small" fullWidth label="ID / Nombre Pieza" name="id_pieza" value={nuevaPieza.id_pieza} onChange={handlePiezaChange} /></Grid>
-                <Grid item xs={4}><TextField size="small" fullWidth label="Largo" name="largo" type="number" value={nuevaPieza.largo} onChange={handlePiezaChange} /></Grid>
-                <Grid item xs={4}><TextField size="small" fullWidth label="Ancho" name="ancho" type="number" value={nuevaPieza.ancho} onChange={handlePiezaChange} /></Grid>
-                <Grid item xs={4}><TextField size="small" fullWidth label="Cant." name="cantidad" type="number" value={nuevaPieza.cantidad} onChange={handlePiezaChange} /></Grid>
-                <Grid item xs={12}>
-                  <Button fullWidth variant="outlined" sx={{ borderRadius: '8px', fontWeight: 'bold' }} onClick={handleAgregarPieza}>
-                    + Agregar Componente
-                  </Button>
-                </Grid>
-              </Grid>
-            </Box>
-
-            <Divider />
-
-            {/* TABLA DE PIEZAS CON SCROLL INTERNO */}
-            <Box sx={{ flexGrow: 1, overflow: 'auto', maxHeight: '250px' }}>
-              <Table size="small" stickyHeader>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ backgroundColor: '#f8fafc', fontWeight: 'bold' }}>Pieza</TableCell>
-                    <TableCell sx={{ backgroundColor: '#f8fafc', fontWeight: 'bold' }}>Medidas</TableCell>
-                    <TableCell sx={{ backgroundColor: '#f8fafc', fontWeight: 'bold', textAlign: 'center' }}>Q</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {piezas.map((p, index) => (
-                    <TableRow key={index} hover>
-                      <TableCell sx={{ fontSize: '0.85rem' }}>{p.id_pieza}</TableCell>
-                      <TableCell sx={{ fontSize: '0.85rem', color: '#64748b' }}>{p.largo} × {p.ancho}</TableCell>
-                      <TableCell sx={{ fontSize: '0.85rem', textAlign: 'center', fontWeight: 'bold' }}>{p.cantidad}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Box>
-
-            <Box sx={{ p: 2, backgroundColor: '#f8fafc', borderTop: '1px solid #e2e8f0' }}>
-              <Button fullWidth variant="contained" onClick={handleOptimizar} sx={{ py: 1.5, borderRadius: '8px', backgroundColor: '#0f172a', fontWeight: 'bold', fontSize: '1rem', '&:hover': { backgroundColor: '#334155' } }}>
-                EJECUTAR ALGORITMO
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
-
-      </Grid>
-
-      {/* -------------------------------------------------------------
-          COLUMNA DERECHA: VISUALIZADOR CAD (70% DEL ANCHO)
-      ------------------------------------------------------------- */}
-      <Grid item xs={12} lg={9} sx={{ height: '100%' }}>
-        <Card sx={{ height: '100%', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', display: 'flex', flexDirection: 'column' }}>
-          
-          <Box sx={{ p: 2, borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#0f172a' }}>
-              Plano de Producción SVG
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+              Agrega cada pieza con su cantidad. Total actual: {totalPiezas}.
             </Typography>
-            {resultadoCorte && (
-              <Typography sx={{ backgroundColor: '#dcfce7', color: '#166534', px: 2, py: 0.5, borderRadius: '20px', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                Tableros requeridos: {resultadoCorte.planchas_usadas || 0}
-              </Typography>
-            )}
           </Box>
 
-          <CardContent sx={{ flexGrow: 1, overflowY: 'auto', backgroundColor: '#f1f5f9', p: 4 }}>
-            {!resultadoCorte ? (
-              <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px dashed #cbd5e1', borderRadius: '12px' }}>
-                <Typography sx={{ color: '#94a3b8', fontWeight: '500' }}>El lienzo está vacío. Ingresa piezas y ejecuta el algoritmo.</Typography>
-              </Box>
-            ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {(resultadoCorte.cortes || []).map((planchaData, index) => (
-                  <Box key={index} sx={{ backgroundColor: '#ffffff', p: 3, borderRadius: '12px', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}>
-                    <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold', color: '#334155' }}>
-                      TABLERO #{index + 1}
-                    </Typography>
-                    
-                    {/* LIENZO SVG FULL WIDTH */}
-                    <svg 
-                      viewBox={`0 0 ${plancha.largo} ${plancha.ancho}`} 
-                      style={{ width: '100%', height: 'auto', backgroundColor: '#fde68a', border: '4px solid #b45309', borderRadius: '4px' }}
-                    >
-                      {/* 1. Dibujamos los Retazos Primero (Para que queden al fondo si hay solapamiento) */}
-                      {(planchaData.retazos_utiles || []).map((retazo, i) => {
-                        const rX = retazo.x; const rY = retazo.y;
-                        const rAncho = retazo.largo || retazo.width || 0;
-                        const rAlto = retazo.ancho || retazo.height || 0;
-                        
-                        // DEFENSA: Si el retazo no tiene coordenadas válidas X/Y, no lo dibujamos
-                        if (rX === undefined || rY === undefined) return null;
-                        
-                        return (
-                          <g key={`retazo-${i}`}>
-                            <rect x={rX} y={rY} width={rAncho} height={rAlto} fill="rgba(34, 197, 94, 0.4)" stroke="#15803d" strokeWidth="3" />
-                            {(rAncho > 200 && rAlto > 200) && (
-                              <text x={rX + rAncho / 2} y={rY + rAlto / 2} fill="#14532d" fontSize="40" fontWeight="bold" textAnchor="middle" alignmentBaseline="middle">
-                                RETAZO
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 1.5 }}>
+            <TextField
+              label="Nombre de pieza"
+              name="id_pieza"
+              value={nuevaPieza.id_pieza}
+              onChange={handlePiezaChange}
+              sx={{ gridColumn: 'span 12' }}
+            />
+            <TextField
+              label="Largo"
+              name="largo"
+              type="number"
+              value={nuevaPieza.largo}
+              onChange={handlePiezaChange}
+              sx={{ gridColumn: { xs: 'span 12', sm: 'span 4' } }}
+            />
+            <TextField
+              label="Ancho"
+              name="ancho"
+              type="number"
+              value={nuevaPieza.ancho}
+              onChange={handlePiezaChange}
+              sx={{ gridColumn: { xs: 'span 12', sm: 'span 4' } }}
+            />
+            <TextField
+              label="Cantidad"
+              name="cantidad"
+              type="number"
+              value={nuevaPieza.cantidad}
+              onChange={handlePiezaChange}
+              sx={{ gridColumn: { xs: 'span 12', sm: 'span 4' } }}
+            />
+            <Button variant="outlined" onClick={handleAgregarPieza} sx={{ gridColumn: 'span 12', borderRadius: 2 }}>
+              Agregar componente
+            </Button>
+          </Box>
+
+          <Divider />
+
+          <Box sx={{ maxHeight: 220, overflow: 'auto' }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Pieza</TableCell>
+                  <TableCell>Medidas</TableCell>
+                  <TableCell align="center">Cant.</TableCell>
+                  <TableCell align="right">Acciones</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {piezas.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                      Aún no hay piezas agregadas.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  piezas.map((p, index) => (
+                    <TableRow key={index} hover>
+                      <TableCell sx={{ fontSize: '0.85rem' }}>{p.id_pieza}</TableCell>
+                      <TableCell sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
+                        {p.largo} x {p.ancho}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: '0.85rem', textAlign: 'center', fontWeight: 700 }}>{p.cantidad}</TableCell>
+                      <TableCell align="right">
+                        <Button
+                          color="error"
+                          size="small"
+                          variant="text"
+                          onClick={() => handleEliminarPieza(index)}
+                          sx={{ fontWeight: 700, minWidth: 0, px: 1 }}
+                        >
+                          X
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Box>
+
+          <Button
+            variant="contained"
+            onClick={handleOptimizar}
+            disabled={piezas.length === 0}
+            sx={{ py: 1.4 }}
+          >
+            Optimizar cortes
+          </Button>
+        </Paper>
+      </Box>
+
+      <Paper
+        sx={{
+          borderRadius: 3,
+          p: 2.5,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          minHeight: { lg: '70vh' }
+        }}
+      >
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+          <Box>
+            <Typography variant="h5" sx={{ fontWeight: 600, mb: 0.4 }}>
+              Plano de producción
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+              Visualiza el patrón optimizado y registra retazos utilizables.
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Chip label={`Tableros: ${totalTableros}`} variant="outlined" />
+            <Chip label={`Retazos: ${totalRetazos}`} variant="outlined" />
+          </Box>
+        </Box>
+
+        <Divider />
+
+        <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
+          {!resultadoCorte ? (
+            <Box
+              sx={{
+                height: '100%',
+                minHeight: 260,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px dashed rgba(31, 58, 95, 0.3)',
+                borderRadius: 3,
+                backgroundColor: 'rgba(255, 255, 255, 0.6)'
+              }}
+            >
+              <Typography sx={{ color: 'text.secondary' }}>
+                El lienzo está listo. Ingresa piezas y ejecuta el algoritmo.
+              </Typography>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {(resultadoCorte.cortes || []).map((planchaData, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                    borderRadius: 3,
+                    border: '1px solid rgba(28, 35, 43, 0.1)',
+                    p: 2
+                  }}
+                >
+                  <Typography variant="subtitle1" sx={{ mb: 1.5, fontWeight: 600, color: 'text.secondary' }}>
+                    Tablero #{index + 1}
+                  </Typography>
+                  <svg
+                    viewBox={`0 0 ${plancha.largo} ${plancha.ancho}`}
+                    style={{
+                      width: '100%',
+                      height: 'auto',
+                      background: 'linear-gradient(180deg, #f1d7ad 0%, #e8c897 100%)',
+                      border: '3px solid #b07a3d',
+                      borderRadius: '6px'
+                    }}
+                  >
+                    {(planchaData.retazos_utiles || []).map((retazo, i) => {
+                      const rX = retazo.x;
+                      const rY = retazo.y;
+                      const rAncho = retazo.largo || retazo.width || 0;
+                      const rAlto = retazo.ancho || retazo.height || 0;
+                      const rMin = Math.min(rAncho, rAlto);
+                      const rLabelSize = Math.max(8, Math.min(18, rMin / 7));
+                      const rDimsSize = Math.max(7, rLabelSize - 3);
+                      const rPadding = Math.max(4, Math.min(10, rMin / 10));
+                      const rSku = retazo.sku || retazo.id_pieza || 'RETAZO';
+                      const showRetazoLabel = rMin > 28;
+
+                      if (rX === undefined || rY === undefined) return null;
+
+                      return (
+                        <g key={`retazo-${i}`}>
+                          <rect x={rX} y={rY} width={rAncho} height={rAlto} fill="rgba(69, 160, 125, 0.32)" stroke="#2f6f57" strokeWidth="3" />
+                          {showRetazoLabel && (
+                            <>
+                              <text
+                                x={rX + rPadding}
+                                y={rY + rPadding}
+                                fill="#1f513e"
+                                fontSize={rLabelSize}
+                                fontWeight="600"
+                                dominantBaseline="hanging"
+                                opacity="0.8"
+                              >
+                                {rSku}
                               </text>
-                            )}
-                          </g>
-                        );
-                      })}
+                              <text
+                                x={rX + rPadding}
+                                y={rY + rPadding + rLabelSize + 3}
+                                fill="#1f513e"
+                                fontSize={rDimsSize}
+                                dominantBaseline="hanging"
+                                opacity="0.65"
+                              >
+                                {Math.round(rAncho)} x {Math.round(rAlto)}
+                              </text>
+                            </>
+                          )}
+                        </g>
+                      );
+                    })}
 
-                      {/* 2. Dibujamos las Piezas de Producción por encima */}
-                      {(planchaData.piezas || []).map((pieza, i) => {
-                        const pX = pieza.x || 0; const pY = pieza.y || 0;
-                        const pAncho = pieza.largo || 0; const pAlto = pieza.ancho || 0;
+                    {(planchaData.piezas || []).map((pieza, i) => {
+                      const pX = pieza.x || 0;
+                      const pY = pieza.y || 0;
+                      const pAncho = pieza.largo || 0;
+                      const pAlto = pieza.ancho || 0;
 
-                        return (
-                          <g key={`pieza-${i}`}>
-                            <rect x={pX} y={pY} width={pAncho} height={pAlto} fill="#fcd34d" stroke="#b45309" strokeWidth="4" />
-                            {(pAncho > 150 && pAlto > 150) && (
-                              <>
-                                <text x={pX + pAncho / 2} y={pY + pAlto / 2 - 15} fill="#0f172a" fontSize="45" fontWeight="bold" textAnchor="middle" alignmentBaseline="middle">
-                                  {pieza.id_pieza}
-                                </text>
-                                <text x={pX + pAncho / 2} y={pY + pAlto / 2 + 45} fill="#334155" fontSize="35" textAnchor="middle" alignmentBaseline="middle">
-                                  {Math.round(pAncho)} × {Math.round(pAlto)}
-                                </text>
-                              </>
-                            )}
-                          </g>
-                        );
-                      })}
-                    </svg>
+                      const minDim = Math.min(pAncho, pAlto);
+                      const labelSize = Math.max(8, Math.min(22, minDim / 6));
+                      const dimsSize = Math.max(7, labelSize - 3);
+                      const labelPadding = Math.max(4, Math.min(10, minDim / 10));
 
-                  </Box>
-                ))}
-              </Box>
-            )}
-          </CardContent>
-        </Card>
-      </Grid>
-    </Grid>
+                      return (
+                        <g key={`pieza-${i}`}>
+                          <rect
+                            x={pX}
+                            y={pY}
+                            width={pAncho}
+                            height={pAlto}
+                            fill="rgba(240, 190, 99, 0.75)"
+                            stroke="#a06a32"
+                            strokeWidth="4"
+                          />
+                          <>
+                            <text
+                              x={pX + labelPadding}
+                              y={pY + labelPadding}
+                              fill="#1c232b"
+                              fontSize={labelSize}
+                              fontWeight="600"
+                              dominantBaseline="hanging"
+                              opacity="0.8"
+                            >
+                              {pieza.id_pieza}
+                            </text>
+                            <text
+                              x={pX + labelPadding}
+                              y={pY + labelPadding + labelSize + 3}
+                              fill="#1c232b"
+                              fontSize={dimsSize}
+                              dominantBaseline="hanging"
+                              opacity="0.65"
+                            >
+                              {Math.round(pAncho)} x {Math.round(pAlto)}
+                            </text>
+                          </>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Box>
+      </Paper>
+    </Box>
   );
 }
 
