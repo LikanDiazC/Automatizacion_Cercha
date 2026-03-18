@@ -4,8 +4,10 @@ from core.database import engine, Base
 
 from modulos.inventario import models as inventario_models
 from modulos.mrp import models as mrp_models
+from modulos.ordenes import models as ordenes_models
 from modulos.inventario import router as inventario_router
 from modulos.mrp import router as mrp_router
+from modulos.ordenes import router as ordenes_router
 
 Base.metadata.create_all(bind=engine)
 
@@ -27,6 +29,7 @@ app.add_middleware(
 
 app.include_router(inventario_router.router)
 app.include_router(mrp_router.router)
+app.include_router(ordenes_router.router)
 
 @app.get("/")
 def ruta_raiz():
