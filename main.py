@@ -28,7 +28,7 @@ app.add_middleware(
 # --- INICIO MIDDLEWARE DE CORS ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173","https://suplee.pages.dev"], # Le damos permiso específico a tu frontend de React
+    allow_origins=["https://suplee.pages.dev"], # Le damos permiso específico a tu frontend de React
     allow_credentials=True,
     allow_methods=["*"], # Permite GET, POST, PUT, DELETE
     allow_headers=["*"],
