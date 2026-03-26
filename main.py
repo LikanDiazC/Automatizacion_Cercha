@@ -28,9 +28,13 @@ app.add_middleware(
 # --- INICIO MIDDLEWARE DE CORS ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://suplee.pages.dev"], # Le damos permiso específico a tu frontend de React
+    # Aquí le decimos a Python quiénes pueden entrar:
+    allow_origins=[
+        "http://localhost:5173",            # Para cuando pruebas en tu PC
+        "https://suplee.pages.dev"          # El Pase VIP para Cloudflare
+    ],
     allow_credentials=True,
-    allow_methods=["*"], # Permite GET, POST, PUT, DELETE
+    allow_methods=["*"],                    # Permitir GET, POST, DELETE, etc.
     allow_headers=["*"],
 )
 # --- FIN MIDDLEWARE DE CORS ---
