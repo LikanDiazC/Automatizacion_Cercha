@@ -17,14 +17,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # El "*" significa "Dejar entrar a todos" (luego lo cambiaremos por tu dominio)
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # --- INICIO MIDDLEWARE DE CORS ---
 app.add_middleware(
     CORSMiddleware,
