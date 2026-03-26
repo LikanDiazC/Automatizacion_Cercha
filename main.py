@@ -17,10 +17,18 @@ app = FastAPI(
     version="1.0.0"
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # El "*" significa "Dejar entrar a todos" (luego lo cambiaremos por tu dominio)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # --- INICIO MIDDLEWARE DE CORS ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"], # Le damos permiso específico a tu frontend de React
+    allow_origins=["http://localhost:5173","https://suplee.pages.dev"], # Le damos permiso específico a tu frontend de React
     allow_credentials=True,
     allow_methods=["*"], # Permite GET, POST, PUT, DELETE
     allow_headers=["*"],
