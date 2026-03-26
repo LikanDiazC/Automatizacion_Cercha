@@ -31,7 +31,7 @@ function Pendientes() {
 
   const cargarOrdenes = () => {
     axios
-      .get('http://localhost:8000/api/ordenes')
+      .get('https://automatizacion-cercha.onrender.com/api/ordenes')
       .then((respuesta) => {
         const lista = respuesta.data || [];
         setOrdenes(lista);
@@ -44,7 +44,7 @@ function Pendientes() {
 
   const cargarMuebles = () => {
     axios
-      .get('http://localhost:8000/api/ordenes/muebles')
+      .get('https://automatizacion-cercha.onrender.com/api/ordenes/muebles')
       .then((respuesta) => setMuebles(respuesta.data || []))
       .catch((error) => console.error('Error al cargar muebles:', error));
   };
@@ -97,7 +97,7 @@ function Pendientes() {
 
   const handlePrioridadChange = (ordenId, prioridad) => {
     axios
-      .put(`http://localhost:8000/api/ordenes/${ordenId}/prioridad`, { prioridad })
+      .put(`https://automatizacion-cercha.onrender.com/api/ordenes/${ordenId}/prioridad`, { prioridad })
       .then(() => cargarOrdenes())
       .catch((error) => console.error('Error al actualizar prioridad:', error));
   };

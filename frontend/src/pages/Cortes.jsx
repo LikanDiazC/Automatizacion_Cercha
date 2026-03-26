@@ -22,7 +22,7 @@ function Cortes() {
 
   const cargarOrdenes = () => {
     axios
-      .get('http://localhost:8000/api/ordenes')
+      .get('https://automatizacion-cercha.onrender.com/api/ordenes')
       .then((respuesta) => {
         const lista = respuesta.data || [];
         setOrdenes(lista);
@@ -50,7 +50,7 @@ function Cortes() {
     }
     setCargandoDetalle(true);
     axios
-      .get(`http://localhost:8000/api/ordenes/${ordenSeleccionadaId}/cortes`)
+      .get(`https://automatizacion-cercha.onrender.com/api/ordenes/${ordenSeleccionadaId}/cortes`)
       .then((respuesta) => setDetalleOrden(respuesta.data))
       .catch((error) => console.error('Error al cargar cortes:', error))
       .finally(() => setCargandoDetalle(false));

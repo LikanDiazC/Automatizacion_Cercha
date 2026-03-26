@@ -27,7 +27,7 @@ function Ordenes() {
 
   const cargarMuebles = () => {
     axios
-      .get('http://localhost:8000/api/ordenes/muebles')
+      .get('https://automatizacion-cercha.onrender.com/api/ordenes/muebles')
       .then((respuesta) => {
         setMuebles(respuesta.data || []);
         if (respuesta.data?.length && !muebleId) {
@@ -39,7 +39,7 @@ function Ordenes() {
 
   const cargarOrdenes = () => {
     axios
-      .get('http://localhost:8000/api/ordenes')
+      .get('https://automatizacion-cercha.onrender.com/api/ordenes')
       .then((respuesta) => setOrdenes(respuesta.data || []))
       .catch((error) => console.error('Error al cargar órdenes:', error));
   };
@@ -74,7 +74,7 @@ function Ordenes() {
   const handleCrearOrden = () => {
     if (!muebleId) return;
     axios
-      .post('http://localhost:8000/api/ordenes', {
+      .post('https://automatizacion-cercha.onrender.com/api/ordenes', {
         mueble_id: Number(muebleId),
         cantidad: Number(cantidad || 1),
         notas,
