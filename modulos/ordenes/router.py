@@ -124,6 +124,13 @@ def registrar_retazo_en_inventario(db: Session, codigo_retazo: str, retazo):
     db.add(nuevo_articulo_retazo)
 
 
+def obtener_prioridad_estado(db: Session, orden_id: int):
+    registro = db.query(models.OrdenPrioridad).filter(models.OrdenPrioridad.orden_id == orden_id).first()
+    if registro:
+        return registro.prioridad, registro.estado
+    return 3, "Pendiente"
+
+
 @router.get("/muebles", response_model=list[schemas.MuebleResponse])
 def listar_muebles(db: Session = Depends(get_db)):
     seed_muebles(db)
@@ -221,6 +228,9 @@ def crear_orden(data: schemas.OrdenCreate, db: Session = Depends(get_db)):
 
     asignar_skus_retazos(resultado_cortes["cortes"], orden.id)
 
+    prioridad_meta = models.OrdenPrioridad(orden_id=orden.id, prioridad=3, estado="Pendiente")
+    db.add(prioridad_meta)
+
     for plancha in resultado_cortes["cortes"]:
         for retazo in plancha["retazos_utiles"]:
             codigo_retazo = retazo.get("sku") or f"RET-{int(retazo['ancho'])}x{int(retazo['largo'])}-{str(uuid.uuid4())[:4]}"
@@ -247,6 +257,8 @@ def crear_orden(data: schemas.OrdenCreate, db: Session = Depends(get_db)):
         "planchas_usadas": resultado_cortes["planchas_usadas"],
         "retazos_total": retazos_total,
         "retazos_por_plancha": retazos_por_plancha,
+        "prioridad": prioridad_meta.prioridad,
+        "estado": prioridad_meta.estado,
         "cortes": resultado_cortes["cortes"]
     }
 
@@ -257,6 +269,7 @@ def listar_ordenes(db: Session = Depends(get_db)):
     respuesta = []
     for orden in ordenes:
         mueble = db.query(models.Mueble).filter(models.Mueble.id == orden.mueble_id).first()
+        prioridad, estado = obtener_prioridad_estado(db, orden.id)
         respuesta.append({
             "id": orden.id,
             "mueble_id": orden.mueble_id,
@@ -275,9 +288,34 @@ def listar_ordenes(db: Session = Depends(get_db)):
             "planchas_usadas": orden.planchas_usadas,
             "retazos_total": orden.retazos_total,
             "retazos_por_plancha": json.loads(orden.retazos_por_plancha_json or "[]"),
+            "prioridad": prioridad,
+            "estado": estado,
             "cortes": []
         })
     return respuesta
+
+
+@router.put("/{orden_id}/prioridad")
+def actualizar_prioridad(orden_id: int, data: schemas.OrdenPrioridadUpdate, db: Session = Depends(get_db)):
+    orden = db.query(models.OrdenTrabajo).filter(models.OrdenTrabajo.id == orden_id).first()
+    if not orden:
+        raise HTTPException(status_code=404, detail="Orden no encontrada.")
+
+    registro = db.query(models.OrdenPrioridad).filter(models.OrdenPrioridad.orden_id == orden_id).first()
+    if not registro:
+        registro = models.OrdenPrioridad(orden_id=orden_id, prioridad=data.prioridad, estado="Pendiente")
+        db.add(registro)
+    else:
+        registro.prioridad = data.prioridad
+
+    db.commit()
+    db.refresh(registro)
+
+    return {
+        "orden_id": orden_id,
+        "prioridad": registro.prioridad,
+        "estado": registro.estado
+    }
 
 
 @router.get("/{orden_id}/cortes")

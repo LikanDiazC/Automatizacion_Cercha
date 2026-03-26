@@ -19,6 +19,7 @@ import {
 import Inventario from './pages/Inventario';
 import Cortes from './pages/Cortes';
 import Ordenes from './pages/Ordenes';
+import Pendientes from './pages/Pendientes';
 import { AdminContext } from './context/adminContext';
 
 const theme = createTheme({
@@ -127,6 +128,11 @@ const navItems = [
     to: '/ordenes',
     label: 'Órdenes',
     caption: 'Trabajo y recursos'
+  },
+  {
+    to: '/pendientes',
+    label: 'Pendientes',
+    caption: 'Prioridades y materiales'
   }
 ];
 
@@ -258,6 +264,7 @@ function AppMain() {
           <Route path="/" element={<Inventario />} />
           <Route path="/cortes" element={<Cortes />} />
           <Route path="/ordenes" element={<Ordenes />} />
+          <Route path="/pendientes" element={<Pendientes />} />
         </Routes>
       </Box>
     </Box>

@@ -45,3 +45,15 @@ class OrdenTrabajo(Base):
     retazos_por_plancha_json = Column(Text, default="[]")
 
     mueble = relationship("Mueble", back_populates="ordenes")
+    prioridad_meta = relationship("OrdenPrioridad", back_populates="orden", uselist=False, cascade="all, delete-orphan")
+
+
+class OrdenPrioridad(Base):
+    __tablename__ = "ordenes_prioridad"
+
+    id = Column(Integer, primary_key=True, index=True)
+    orden_id = Column(Integer, ForeignKey("ordenes_trabajo.id"), unique=True, index=True, nullable=False)
+    prioridad = Column(Integer, default=3)
+    estado = Column(String, default="Pendiente")
+
+    orden = relationship("OrdenTrabajo", back_populates="prioridad_meta")

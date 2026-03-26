@@ -42,6 +42,10 @@ class OrdenCreate(BaseModel):
     grosor_sierra: float = 4.0
 
 
+class OrdenPrioridadUpdate(BaseModel):
+    prioridad: int
+
+
 class OrdenResponse(BaseModel):
     id: int
     mueble_id: int
@@ -60,5 +64,6 @@ class OrdenResponse(BaseModel):
     planchas_usadas: int
     retazos_total: int
     retazos_por_plancha: List[int]
+    prioridad: Optional[int] = None
+    estado: Optional[str] = None
     cortes: Optional[list] = None
-
