@@ -36,11 +36,13 @@ function Inventario() {
     stock_actual: 0
   });
 
-  const cargarInventario = () => {
-    axios
-      .get('automatizacion-cercha.onrender.com/api/inventario/articulos')
-      .then((respuesta) => setArticulos(respuesta.data))
-      .catch((error) => console.error('Error al cargar:', error));
+const cargarInventario = () => {
+    axios.get('https://automatizacion-cercha.onrender.com/api/inventario/articulos')
+      .then((respuesta) => {
+        // ESCUDO: Si la respuesta es una lista, úsala. Si no, usa una lista vacía [].
+        setArticulos(Array.isArray(respuesta.data) ? respuesta.data : []);
+      })
+      .catch((error) => console.error("Error al cargar:", error));
   };
 
   useEffect(() => {
