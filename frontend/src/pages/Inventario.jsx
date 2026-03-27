@@ -37,7 +37,7 @@ function Inventario() {
   });
 
 const cargarInventario = () => {
-    axios.get('https://automatizacion-cercha.onrender.com/api/inventario/articulos')
+    axios.get('http://localhost:8000/api/inventario/articulos')
       .then((respuesta) => {
         // ESCUDO: Si la respuesta es una lista, úsala. Si no, usa una lista vacía [].
         setArticulos(Array.isArray(respuesta.data) ? respuesta.data : []);
@@ -55,7 +55,7 @@ const cargarInventario = () => {
 
   const handleGuardar = () => {
     axios
-      .post('https://automatizacion-cercha.onrender.com/api/inventario/articulos', nuevoArticulo)
+      .post('http://localhost:8000/api/inventario/articulos', nuevoArticulo)
       .then(() => {
         handleCerrar();
         cargarInventario();
@@ -79,7 +79,7 @@ const cargarInventario = () => {
       return;
     }
     axios
-      .delete(`https://automatizacion-cercha.onrender.com/api/inventario/articulos/${articulo.id}`, {
+      .delete(`http://localhost:8000/api/inventario/articulos/${articulo.id}`, {
         headers: {
           'X-Admin-User': adminSession.user,
           'X-Admin-Token': adminSession.token

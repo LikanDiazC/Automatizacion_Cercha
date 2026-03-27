@@ -1,24 +1,24 @@
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PiezaCorte(BaseModel):
-    id_pieza: str
-    largo: float
-    ancho: float
-    cantidad: int
+    id_pieza: str = Field(..., min_length=1, max_length=100)
+    largo: float = Field(..., gt=0, le=5000)
+    ancho: float = Field(..., gt=0, le=5000)
+    cantidad: int = Field(..., ge=1, le=500)
 
 
 class MuebleBase(BaseModel):
-    nombre: str
-    largo: float
-    ancho: float
-    alto: float
-    tornillos: float = 0.0
-    pegamento_ml: float = 0.0
-    pintura_ml: float = 0.0
-    perfiles_m: float = 0.0
+    nombre: str = Field(..., min_length=1, max_length=200)
+    largo: float = Field(..., gt=0, le=10000)
+    ancho: float = Field(..., gt=0, le=10000)
+    alto: float = Field(..., gt=0, le=10000)
+    tornillos: float = Field(default=0.0, ge=0)
+    pegamento_ml: float = Field(default=0.0, ge=0)
+    pintura_ml: float = Field(default=0.0, ge=0)
+    perfiles_m: float = Field(default=0.0, ge=0)
     piezas: List[PiezaCorte] = []
 
 
@@ -34,16 +34,20 @@ class MuebleResponse(MuebleBase):
 
 
 class OrdenCreate(BaseModel):
-    mueble_id: int
-    cantidad: int = 1
-    notas: Optional[str] = None
-    largo_plancha: float = 2440.0
-    ancho_plancha: float = 1220.0
-    grosor_sierra: float = 4.0
+    mueble_id: int = Field(..., gt=0)
+    cantidad: int = Field(default=1, ge=1, le=500)
+    notas: Optional[str] = Field(default=None, max_length=1000)
+    largo_plancha: float = Field(default=2440.0, gt=100, le=10000)
+    ancho_plancha: float = Field(default=1220.0, gt=100, le=10000)
+    grosor_sierra: float = Field(default=4.0, ge=0.5, le=30)
 
 
 class OrdenPrioridadUpdate(BaseModel):
-    prioridad: int
+    prioridad: int = Field(..., ge=1, le=5)
+
+
+class OrdenEstadoUpdate(BaseModel):
+    estado: str = Field(..., pattern="^(Pendiente|En progreso|Completado|Cancelado)$")
 
 
 class OrdenResponse(BaseModel):
