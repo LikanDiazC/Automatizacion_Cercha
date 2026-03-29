@@ -26,6 +26,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
+from core.database import SessionLocal # Importa tu generador de sesiones
 
 from core.database import get_db
 from .models import (
@@ -204,14 +205,20 @@ async def buscar_productos(
         canonical = None
 
     # Generar embeddings restantes en background (no bloquea la respuesta)
-    async def _generar_embeddings_background() -> None:
-        for producto in productos_db:
-            try:
-                await generar_y_guardar_embedding(producto, db)
-            except Exception as e:
-                logger.warning("Embedding fallido para producto %d: %s", producto.id, e)
-
-    background.add_task(_generar_embeddings_background)
+    async def _generar_embeddings_background(productos_ids: list[int]) -> None:
+        db_bg = SessionLocal() # Nueva sesión independiente
+        try:
+            productos_bg = db_bg.query(ProductoProveedor).filter(ProductoProveedor.id.in_(productos_ids)).all()
+            for p in productos_bg:
+                try:
+                    await generar_y_guardar_embedding(p, db_bg)
+                except Exception as e:
+                    logger.warning("Embedding fallido: %s", e)
+        finally:
+            db_bg.close()
+    # Al llamar a background task pasamos solo los IDs
+    ids_productos = [p.id for p in productos_db]
+    background.add_task(_generar_embeddings_background, ids_productos)
 
     # --- Paso 4: Agrupar por canonical y hacer matching ---
     resultados: list[ResultadoBusqueda] = await _construir_resultados_busqueda(

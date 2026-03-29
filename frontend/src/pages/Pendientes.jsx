@@ -5,7 +5,7 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 
-const API = 'http://localhost:8000';
+const API = 'http://127.0.0.1:8000';
 
 const PRIORIDADES = [
   { value: 5, label: '5 — Alta' },

@@ -699,5 +699,5 @@ async def ejecutar_busqueda(
     Uso:
         resultados = await ejecutar_busqueda("tornillo 1/4", [NombreProveedor.SODIMAC])
     """
-    orchestrator = ScraperOrchestrador()
+    orchestrator = ScraperOrchestrator()
     return await orchestrator.buscar(query, proveedores, max_resultados)
