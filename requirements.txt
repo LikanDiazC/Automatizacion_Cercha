@@ -4,3 +4,8 @@ pydantic>=2.7.0
 sqlalchemy>=2.0.0
 rectpack>=0.2.2
 python-dotenv>=1.0.0
+pydantic-settings>=2.0
+playwright
+httpx
+beautifulsoup4
+lxml

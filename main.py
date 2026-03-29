@@ -13,6 +13,11 @@ from modulos.ordenes import models as ordenes_models  # noqa: F401
 from modulos.inventario import router as inventario_router
 from modulos.mrp import router as mrp_router
 from modulos.ordenes import router as ordenes_router
+from modulos.compras import models as compras_models
+from modulos.compras import router as compras_router
+from modulos.compras import models as compras_models   # noqa: F401 (activa create_all)
+from modulos.compras.router import router as compras_router
+
 
 
 @asynccontextmanager
@@ -61,6 +66,8 @@ async def generic_error_handler(request: Request, exc: Exception):
 app.include_router(inventario_router.router)
 app.include_router(mrp_router.router)
 app.include_router(ordenes_router.router)
+app.include_router(compras_router.router)
+app.include_router(compras_router)
 
 
 @app.get("/", tags=["Health"])
