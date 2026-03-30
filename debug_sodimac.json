@@ -1,0 +1,3244 @@
+{
+  "props": {
+    "pageProps": {
+      "searchProps": {
+        "searchData": {
+          "results": [
+            {
+              "productId": "2127466",
+              "merchantCategoryId": "0101010406",
+              "skuId": "2127466",
+              "isPrimeEligible": false,
+              "displayName": "Caja 150 fijaciones Deck + tornillo madera + punta para tornillos",
+              "brand": "Deck Raiser",
+              "media": {
+                "id": "2127466",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [
+                {
+                  "description": "Despacho Gratis",
+                  "value": ""
+                }
+              ],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "31.990",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 31990
+                }
+              ],
+              "totalReviews": "10",
+              "rating": "4.9",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Tipo",
+                  "value": "Construcción"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/2127466/public",
+                "https://media.falabella.com/sodimacCL/2127466_01/public",
+                "https://media.falabella.com/sodimacCL/2127466_02/public",
+                "https://media.falabella.com/sodimacCL/2127466_22/public",
+                "https://media.falabella.com/sodimacCL/2127466_26/public"
+              ]
+            },
+            {
+              "productId": "2127458",
+              "merchantCategoryId": "0101010406",
+              "skuId": "2127458",
+              "isPrimeEligible": false,
+              "displayName": "Caja 150 Fjaciones Deck + tornillo metal + punta para tornillos",
+              "brand": "Deck Raiser",
+              "media": {
+                "id": "2127458",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "31.990",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 31990
+                }
+              ],
+              "totalReviews": "6",
+              "rating": "4.5",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Tipo",
+                  "value": "Accesorios Deck WPC"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/2127458/public",
+                "https://media.falabella.com/sodimacCL/2127458_01/public",
+                "https://media.falabella.com/sodimacCL/2127458_17/public",
+                "https://media.falabella.com/sodimacCL/2127458_21/public",
+                "https://media.falabella.com/sodimacCL/2127458_22/public"
+              ]
+            },
+            {
+              "productId": "9007229",
+              "merchantCategoryId": "0209010308",
+              "skuId": "9007229",
+              "isPrimeEligible": false,
+              "displayName": "Tornillo mecánico metal",
+              "brand": "Bauker",
+              "media": {
+                "id": "9007229",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "30.990",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 30990
+                }
+              ],
+              "totalReviews": "5",
+              "rating": "3.8",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Ancho",
+                  "value": "3 \""
+                },
+                {
+                  "key": "Material",
+                  "value": "Metal"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/9007229/public",
+                "https://media.falabella.com/sodimacCL/9007229_01/public",
+                "https://media.falabella.com/sodimacCL/9007229_02/public",
+                "https://media.falabella.com/sodimacCL/9007229_03/public",
+                "https://media.falabella.com/sodimacCL/9007229_17/public",
+                "https://media.falabella.com/sodimacCL/9007229_18/public"
+              ]
+            },
+            {
+              "productId": "9007253",
+              "merchantCategoryId": "0209010307",
+              "skuId": "9007253",
+              "isPrimeEligible": false,
+              "displayName": "Tornillo de banco 6\" acero",
+              "brand": "Bauker",
+              "media": {
+                "id": "9007253",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "86.990",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 86990
+                }
+              ],
+              "totalReviews": "3",
+              "rating": "5",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Ancho",
+                  "value": "20 cm"
+                },
+                {
+                  "key": "Largo",
+                  "value": "42 cm"
+                },
+                {
+                  "key": "Material",
+                  "value": "Acero inoxidable"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/9007253/public",
+                "https://media.falabella.com/sodimacCL/9007253_01/public",
+                "https://media.falabella.com/sodimacCL/9007253_02/public",
+                "https://media.falabella.com/sodimacCL/9007253_03/public",
+                "https://media.falabella.com/sodimacCL/9007253_04/public",
+                "https://media.falabella.com/sodimacCL/9007253_18/public"
+              ]
+            },
+            {
+              "productId": "9007245",
+              "merchantCategoryId": "0209010308",
+              "skuId": "9007245",
+              "isPrimeEligible": false,
+              "displayName": "Tornillo de banco 4\" acero",
+              "brand": "Bauker",
+              "media": {
+                "id": "9007245",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "CMR",
+                  "symbol": "$",
+                  "price": "33.990",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 33990
+                },
+                {
+                  "label": "Normal",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "56.990",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 56990
+                }
+              ],
+              "totalReviews": "7",
+              "rating": "4.7143",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Largo",
+                  "value": "4 \""
+                },
+                {
+                  "key": "Material",
+                  "value": "Acero"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/9007245/public",
+                "https://media.falabella.com/sodimacCL/9007245_01/public",
+                "https://media.falabella.com/sodimacCL/9007245_02/public",
+                "https://media.falabella.com/sodimacCL/9007245_03/public",
+                "https://media.falabella.com/sodimacCL/9007245_12/public",
+                "https://media.falabella.com/sodimacCL/9007245_18/public"
+              ]
+            },
+            {
+              "productId": "7668570",
+              "merchantCategoryId": "0209040114",
+              "skuId": "7668570",
+              "isPrimeEligible": false,
+              "displayName": "Cargador rápido para tornillos en cinta",
+              "brand": "Dewalt",
+              "media": {
+                "id": "7668570",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "INTERNET",
+                  "symbol": "$",
+                  "price": "50.990",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 50990
+                },
+                {
+                  "label": "Normal",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "71.090",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 71090
+                }
+              ],
+              "totalReviews": "2",
+              "rating": "5",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Amperaje",
+                  "value": "2 A"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/7668570/public",
+                "https://media.falabella.com/sodimacCL/7668570_01/public",
+                "https://media.falabella.com/sodimacCL/7668570_02/public",
+                "https://media.falabella.com/sodimacCL/7668570_03/public"
+              ]
+            },
+            {
+              "productId": "1687301",
+              "merchantCategoryId": "0207020202",
+              "skuId": "1687301",
+              "isPrimeEligible": false,
+              "displayName": "Abrazadera tornillo 25 mm",
+              "brand": "Lexo",
+              "media": {
+                "id": "1687301",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "990",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 990
+                }
+              ],
+              "totalReviews": "6",
+              "rating": "4.3333",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Tipo",
+                  "value": "Abrazadera"
+                },
+                {
+                  "key": "Material",
+                  "value": "Acero"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/1687301/public",
+                "https://media.falabella.com/sodimacCL/1687301_001/public",
+                "https://media.falabella.com/sodimacCL/1687301_01/public",
+                "https://media.falabella.com/sodimacCL/1687301_1/public",
+                "https://media.falabella.com/sodimacCL/1687301_17/public",
+                "https://media.falabella.com/sodimacCL/1687301_21/public"
+              ]
+            },
+            {
+              "productId": "168731X",
+              "merchantCategoryId": "0207020202",
+              "skuId": "168731X",
+              "isPrimeEligible": false,
+              "displayName": "Abrazadera tornillo 20 mm",
+              "brand": "Lexo",
+              "media": {
+                "id": "168731X",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "990",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 990
+                }
+              ],
+              "totalReviews": "12",
+              "rating": "4.1667",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "bankBadge": {
+                "type": "BANK_PROMOTION",
+                "value": "https://www.sodimac.cl/static/styles/graphics/ico-ctls-mas-vendido-cyberday.svg"
+              },
+              "highlights": [
+                {
+                  "key": "Tipo",
+                  "value": "Abrazadera"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/168731X/public",
+                "https://media.falabella.com/sodimacCL/168731X_001/public",
+                "https://media.falabella.com/sodimacCL/168731X_01/public",
+                "https://media.falabella.com/sodimacCL/168731X_17/public",
+                "https://media.falabella.com/sodimacCL/168731X_21/public",
+                "https://media.falabella.com/sodimacCL/168731X_26/public"
+              ]
+            },
+            {
+              "productId": "2833832",
+              "merchantCategoryId": "0314090102",
+              "skuId": "2833832",
+              "isPrimeEligible": false,
+              "displayName": "Cubrejunta caoba 1mt tornillo",
+              "brand": "Holztek",
+              "media": {
+                "id": "2833832",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "9.790",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 9790
+                }
+              ],
+              "totalReviews": "23",
+              "rating": "4.7826",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Ancho",
+                  "value": "4 cm"
+                },
+                {
+                  "key": "Largo",
+                  "value": "100 cm"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/2833832/public",
+                "https://media.falabella.com/sodimacCL/2833832_01/public",
+                "https://media.falabella.com/sodimacCL/2833832_21/public",
+                "https://media.falabella.com/sodimacCL/2833832_26/public",
+                "https://media.falabella.com/sodimacCL/2833832_28/public"
+              ]
+            },
+            {
+              "productId": "4185374",
+              "merchantCategoryId": "0207020205",
+              "skuId": "4185374",
+              "isPrimeEligible": false,
+              "displayName": "Abrazadera tornillo 32 mm",
+              "brand": "Lexo",
+              "media": {
+                "id": "4185374",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [
+                {
+                  "description": "Despacho Gratis",
+                  "value": ""
+                }
+              ],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "990",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 990
+                }
+              ],
+              "totalReviews": "2",
+              "rating": "4",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Tipo",
+                  "value": "Abrazadera"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/4185374/public",
+                "https://media.falabella.com/sodimacCL/4185374_001/public",
+                "https://media.falabella.com/sodimacCL/4185374_01/public",
+                "https://media.falabella.com/sodimacCL/4185374_21/public",
+                "https://media.falabella.com/sodimacCL/4185374_22/public",
+                "https://media.falabella.com/sodimacCL/4185374_26/public"
+              ]
+            },
+            {
+              "productId": "7025327",
+              "merchantCategoryId": "0210050201",
+              "skuId": "7025327",
+              "isPrimeEligible": false,
+              "displayName": "Tornillo autorosca + golilla 25 unidades",
+              "brand": "DVP",
+              "media": {
+                "id": "7025327",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "12.590",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 12590
+                }
+              ],
+              "totalReviews": "8",
+              "rating": "5",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Largo",
+                  "value": "5.08 cm"
+                },
+                {
+                  "key": "Material",
+                  "value": "Fierro"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/7025327/public",
+                "https://media.falabella.com/sodimacCL/7025327_001/public",
+                "https://media.falabella.com/sodimacCL/7025327_01/public",
+                "https://media.falabella.com/sodimacCL/7025327_12/public",
+                "https://media.falabella.com/sodimacCL/7025327_13/public"
+              ]
+            },
+            {
+              "productId": "8826",
+              "merchantCategoryId": "0210050904",
+              "skuId": "8826",
+              "isPrimeEligible": false,
+              "displayName": "Tarugo + Tornillo 5mm 20 unidades",
+              "brand": "Rh",
+              "media": {
+                "id": "8826",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [
+                {
+                  "description": "Despacho Gratis",
+                  "value": ""
+                }
+              ],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "2.890",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 2890
+                }
+              ],
+              "totalReviews": "3",
+              "rating": "4.6667",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Material",
+                  "value": "Plástico"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/8826/public",
+                "https://media.falabella.com/sodimacCL/8826_001/public",
+                "https://media.falabella.com/sodimacCL/8826_01/public",
+                "https://media.falabella.com/sodimacCL/8826_17/public",
+                "https://media.falabella.com/sodimacCL/8826_21/public",
+                "https://media.falabella.com/sodimacCL/8826_26/public"
+              ]
+            },
+            {
+              "productId": "59573X",
+              "merchantCategoryId": "0210050302",
+              "skuId": "59573X",
+              "isPrimeEligible": false,
+              "displayName": "Tornillo drywall 6x1 1/4\"",
+              "brand": "Mamut",
+              "media": {
+                "id": "59573X",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "4.390",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 4390
+                }
+              ],
+              "totalReviews": "63",
+              "rating": "4.9206",
+              "variants": [
+                {
+                  "type": "SIZE",
+                  "options": [
+                    {
+                      "label": "250 und",
+                      "value": "250 und",
+                      "badges": [],
+                      "targetId": "59573X",
+                      "selected": true,
+                      "name": "Tornillo drywall 6x1 1/4\"",
+                      "availability": {
+                        "homeDelivery": false,
+                        "clickAndCollect": false
+                      },
+                      "prices": [
+                        {
+                          "label": "",
+                          "type": "NORMAL",
+                          "symbol": "$",
+                          "price": "4.390",
+                          "unit": "C/U",
+                          "priceWithoutFormatting": 4390
+                        }
+                      ],
+                      "mediaUrls": [
+                        "https://media.falabella.com/sodimacCL/59573X/public",
+                        "https://media.falabella.com/sodimacCL/59573X_001/public",
+                        "https://media.falabella.com/sodimacCL/59573X_01/public",
+                        "https://media.falabella.com/sodimacCL/59573X_17/public",
+                        "https://media.falabella.com/sodimacCL/59573X_21/public",
+                        "https://media.falabella.com/sodimacCL/59573X_22/public"
+                      ],
+                      "installments": {}
+                    },
+                    {
+                      "label": "500 und",
+                      "value": "500 und",
+                      "badges": [],
+                      "targetId": "936081",
+                      "selected": false,
+                      "name": "Tornillo drywall 6x1 1/4\"",
+                      "availability": {
+                        "homeDelivery": false,
+                        "clickAndCollect": false
+                      },
+                      "prices": [
+                        {
+                          "label": "",
+                          "type": "NORMAL",
+                          "symbol": "$",
+                          "price": "7.390",
+                          "unit": "C/U",
+                          "priceWithoutFormatting": 7390
+                        }
+                      ],
+                      "mediaUrls": [
+                        "https://media.falabella.com/sodimacCL/936081/public",
+                        "https://media.falabella.com/sodimacCL/936081_001/public",
+                        "https://media.falabella.com/sodimacCL/936081_01/public",
+                        "https://media.falabella.com/sodimacCL/936081_17/public",
+                        "https://media.falabella.com/sodimacCL/936081_21/public",
+                        "https://media.falabella.com/sodimacCL/936081_26/public"
+                      ],
+                      "installments": {}
+                    },
+                    {
+                      "label": "1000 und",
+                      "value": "1000 und",
+                      "badges": [],
+                      "targetId": "1908766",
+                      "selected": false,
+                      "name": "Tornillo drywall 6x1 1/4\"",
+                      "availability": {
+                        "homeDelivery": false,
+                        "clickAndCollect": false
+                      },
+                      "prices": [
+                        {
+                          "label": "",
+                          "type": "NORMAL",
+                          "symbol": "$",
+                          "price": "10.990",
+                          "unit": "C/U",
+                          "priceWithoutFormatting": 10990
+                        }
+                      ],
+                      "mediaUrls": [
+                        "https://media.falabella.com/sodimacCL/1908766/public",
+                        "https://media.falabella.com/sodimacCL/1908766_001/public",
+                        "https://media.falabella.com/sodimacCL/1908766_01/public",
+                        "https://media.falabella.com/sodimacCL/1908766_17/public",
+                        "https://media.falabella.com/sodimacCL/1908766_21/public",
+                        "https://media.falabella.com/sodimacCL/1908766_26/public"
+                      ],
+                      "installments": {}
+                    }
+                  ]
+                }
+              ],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Largo",
+                  "value": "1-1/4 \""
+                },
+                {
+                  "key": "Material",
+                  "value": "Acero"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/59573X/public",
+                "https://media.falabella.com/sodimacCL/59573X_001/public",
+                "https://media.falabella.com/sodimacCL/59573X_01/public",
+                "https://media.falabella.com/sodimacCL/59573X_17/public",
+                "https://media.falabella.com/sodimacCL/59573X_21/public",
+                "https://media.falabella.com/sodimacCL/59573X_22/public"
+              ]
+            },
+            {
+              "productId": "712892",
+              "merchantCategoryId": "0206010204",
+              "skuId": "712892",
+              "isPrimeEligible": false,
+              "displayName": "Tapón Tornillo Bronce m12  1u",
+              "brand": "Grifesa",
+              "media": {
+                "id": "712892",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "1.590",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 1590
+                }
+              ],
+              "totalReviews": "5",
+              "rating": "5",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Material",
+                  "value": "Bronce"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/712892/public",
+                "https://media.falabella.com/sodimacCL/712892_001/public",
+                "https://media.falabella.com/sodimacCL/712892_01/public",
+                "https://media.falabella.com/sodimacCL/712892_21/public",
+                "https://media.falabella.com/sodimacCL/712892_26/public"
+              ]
+            },
+            {
+              "productId": "5696917",
+              "merchantCategoryId": "0314090102",
+              "skuId": "5696917",
+              "isPrimeEligible": false,
+              "displayName": "Cubrejunta desnivel caoba con tornillo",
+              "brand": "Holztek",
+              "media": {
+                "id": "5696917",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "9.190",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 9190
+                }
+              ],
+              "totalReviews": "21",
+              "rating": "4.8571",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Tipo",
+                  "value": "Cubrejunta"
+                },
+                {
+                  "key": "Ancho",
+                  "value": "40 mm"
+                },
+                {
+                  "key": "Largo",
+                  "value": "100 cm"
+                },
+                {
+                  "key": "Espesor",
+                  "value": "1.5 mm"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/5696917/public",
+                "https://media.falabella.com/sodimacCL/5696917_01/public",
+                "https://media.falabella.com/sodimacCL/5696917_21/public",
+                "https://media.falabella.com/sodimacCL/5696917_24/public"
+              ]
+            },
+            {
+              "productId": "9042547",
+              "merchantCategoryId": "0210080509",
+              "skuId": "9042547",
+              "isPrimeEligible": false,
+              "displayName": "Tornillo oval m5x12mm 20 pcs",
+              "brand": "Alfer",
+              "model": "Logika®",
+              "media": {
+                "id": "9042547",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "3.990",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 3990
+                }
+              ],
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Modelo",
+                  "value": "Logika®"
+                },
+                {
+                  "key": "Ancho",
+                  "value": "7.5 cm"
+                },
+                {
+                  "key": "Largo",
+                  "value": "5.7 cm"
+                },
+                {
+                  "key": "Alto",
+                  "value": "1 cm"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/9042547/public",
+                "https://media.falabella.com/sodimacCL/9042547_01/public",
+                "https://media.falabella.com/sodimacCL/9042547_26/public"
+              ]
+            },
+            {
+              "productId": "5696925",
+              "merchantCategoryId": "0314090102",
+              "skuId": "5696925",
+              "isPrimeEligible": false,
+              "displayName": "Cubrejunta desnivel verand con tornillo",
+              "brand": "Holztek",
+              "media": {
+                "id": "5696925",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "9.190",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 9190
+                }
+              ],
+              "totalReviews": "23",
+              "rating": "4.6522",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Tipo",
+                  "value": "Cubrejunta"
+                },
+                {
+                  "key": "Ancho",
+                  "value": "40 mm"
+                },
+                {
+                  "key": "Largo",
+                  "value": "100 cm"
+                },
+                {
+                  "key": "Espesor",
+                  "value": "1.5 mm"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/5696925/public",
+                "https://media.falabella.com/sodimacCL/5696925_01/public",
+                "https://media.falabella.com/sodimacCL/5696925_21/public",
+                "https://media.falabella.com/sodimacCL/5696925_24/public"
+              ]
+            },
+            {
+              "productId": "5696909",
+              "merchantCategoryId": "0314090102",
+              "skuId": "5696909",
+              "isPrimeEligible": false,
+              "displayName": "Cubrejunta desnivel cerezo con tornillo",
+              "brand": "Holztek",
+              "media": {
+                "id": "5696909",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [
+                {
+                  "description": "Despacho Gratis",
+                  "value": ""
+                }
+              ],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "8.890",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 8890
+                }
+              ],
+              "totalReviews": "27",
+              "rating": "4.6296",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Ancho",
+                  "value": "4 cm"
+                },
+                {
+                  "key": "Largo",
+                  "value": "100 cm"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/5696909/public",
+                "https://media.falabella.com/sodimacCL/5696909_01/public",
+                "https://media.falabella.com/sodimacCL/5696909_22/public",
+                "https://media.falabella.com/sodimacCL/5696909_24/public"
+              ]
+            },
+            {
+              "productId": "3655822",
+              "merchantCategoryId": "0209030112",
+              "skuId": "3655822",
+              "isPrimeEligible": false,
+              "displayName": "Set extractor de tornillos 3 piezas",
+              "brand": "Ubermann",
+              "model": "B9J3121",
+              "media": {
+                "id": "3655822",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [
+                {
+                  "description": "Despacho Gratis",
+                  "value": ""
+                }
+              ],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "6.860",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 6860
+                }
+              ],
+              "totalReviews": "24",
+              "rating": "4.4583",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Modelo",
+                  "value": "B9J3121"
+                },
+                {
+                  "key": "Tipo",
+                  "value": "Accesorios para taladros"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/3655822/public",
+                "https://media.falabella.com/sodimacCL/3655822_01/public",
+                "https://media.falabella.com/sodimacCL/3655822_12/public",
+                "https://media.falabella.com/sodimacCL/3655822_17/public",
+                "https://media.falabella.com/sodimacCL/3655822_21/public",
+                "https://media.falabella.com/sodimacCL/3655822_22/public"
+              ]
+            },
+            {
+              "productId": "8983976",
+              "merchantCategoryId": "0210080509",
+              "skuId": "8983976",
+              "isPrimeEligible": false,
+              "displayName": "Kit Tornillo y tarugo 45mm x 8",
+              "brand": "Alfer",
+              "model": "COAXIS",
+              "media": {
+                "id": "8983976",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "1.790",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 1790
+                }
+              ],
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Modelo",
+                  "value": "COAXIS"
+                },
+                {
+                  "key": "Ancho",
+                  "value": "0.4 cm"
+                },
+                {
+                  "key": "Largo",
+                  "value": "4.5 cm"
+                },
+                {
+                  "key": "Alto",
+                  "value": "2.5 cm"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/8983976/public",
+                "https://media.falabella.com/sodimacCL/8983976_01/public",
+                "https://media.falabella.com/sodimacCL/8983976_12/public",
+                "https://media.falabella.com/sodimacCL/8983976_17/public"
+              ]
+            },
+            {
+              "productId": "7154631",
+              "merchantCategoryId": "0206030702",
+              "skuId": "7154631",
+              "isPrimeEligible": false,
+              "displayName": "Tapon Tornillo PPR Gris 1/2\" HE",
+              "brand": "Vinilit",
+              "media": {
+                "id": "7154631",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "130",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 130
+                }
+              ],
+              "totalReviews": "4",
+              "rating": "4.5",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/7154631/public",
+                "https://media.falabella.com/sodimacCL/7154631_01/public",
+                "https://media.falabella.com/sodimacCL/7154631_12/public",
+                "https://media.falabella.com/sodimacCL/7154631_13/public",
+                "https://media.falabella.com/sodimacCL/7154631_26/public"
+              ]
+            },
+            {
+              "productId": "4588",
+              "merchantCategoryId": "0206010201",
+              "skuId": "4588",
+              "isPrimeEligible": false,
+              "displayName": "Tapa Tornillo Bronce HE 3/8\"  1u",
+              "brand": "Tap",
+              "media": {
+                "id": "4588",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [
+                {
+                  "description": "Despacho Gratis",
+                  "value": ""
+                }
+              ],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "1.590",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 1590
+                }
+              ],
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Material",
+                  "value": "Bronce"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/4588/public",
+                "https://media.falabella.com/sodimacCL/4588_001/public",
+                "https://media.falabella.com/sodimacCL/4588_01/public",
+                "https://media.falabella.com/sodimacCL/4588_21/public",
+                "https://media.falabella.com/sodimacCL/4588_26/public"
+              ]
+            },
+            {
+              "productId": "3556654",
+              "merchantCategoryId": "0210050904",
+              "skuId": "3556654",
+              "isPrimeEligible": false,
+              "displayName": "Tarugo sx8 +tornillo escuadra 3 unidades",
+              "brand": "Fischer",
+              "media": {
+                "id": "3556654",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "1.990",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 1990
+                }
+              ],
+              "totalReviews": "1",
+              "rating": "4",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Material",
+                  "value": "Acero"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/3556654/public",
+                "https://media.falabella.com/sodimacCL/3556654_001/public",
+                "https://media.falabella.com/sodimacCL/3556654_01/public",
+                "https://media.falabella.com/sodimacCL/3556654_12/public",
+                "https://media.falabella.com/sodimacCL/3556654_21/public",
+                "https://media.falabella.com/sodimacCL/3556654_22/public"
+              ]
+            },
+            {
+              "productId": "279625",
+              "merchantCategoryId": "0206020401",
+              "skuId": "279625",
+              "isPrimeEligible": false,
+              "displayName": "Tapa Tornillo PVC-P HE 2\"  1u",
+              "brand": "Vinilit",
+              "media": {
+                "id": "279625",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [
+                {
+                  "description": "Despacho Gratis",
+                  "value": ""
+                }
+              ],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "1.490",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 1490
+                }
+              ],
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/279625/public",
+                "https://media.falabella.com/sodimacCL/279625_01/public",
+                "https://media.falabella.com/sodimacCL/279625_12/public",
+                "https://media.falabella.com/sodimacCL/279625_13/public",
+                "https://media.falabella.com/sodimacCL/279625_21/public",
+                "https://media.falabella.com/sodimacCL/279625_22/public"
+              ]
+            },
+            {
+              "productId": "3556530",
+              "merchantCategoryId": "0210050904",
+              "skuId": "3556530",
+              "isPrimeEligible": false,
+              "displayName": "Tarugo multiuso sx10+tornillo 10 unidades",
+              "brand": "Fischer",
+              "media": {
+                "id": "3556530",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [
+                {
+                  "description": "Despacho Gratis",
+                  "value": ""
+                }
+              ],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "4.790",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 4790
+                }
+              ],
+              "totalReviews": "1",
+              "rating": "5",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Material",
+                  "value": "Metal"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/3556530/public",
+                "https://media.falabella.com/sodimacCL/3556530_001/public",
+                "https://media.falabella.com/sodimacCL/3556530_01/public",
+                "https://media.falabella.com/sodimacCL/3556530_21/public",
+                "https://media.falabella.com/sodimacCL/3556530_22/public",
+                "https://media.falabella.com/sodimacCL/3556530_26/public"
+              ]
+            },
+            {
+              "productId": "7483333",
+              "merchantCategoryId": "0210050901",
+              "skuId": "7483333",
+              "isPrimeEligible": false,
+              "displayName": "Tarugo - Clavo Tornillo SA6mm 100 unidades",
+              "brand": "Fischer",
+              "media": {
+                "id": "7483333",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "9.490",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 9490
+                }
+              ],
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Material",
+                  "value": "Nylon"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/7483333/public",
+                "https://media.falabella.com/sodimacCL/7483333_001/public",
+                "https://media.falabella.com/sodimacCL/7483333_01/public",
+                "https://media.falabella.com/sodimacCL/7483333_12/public"
+              ]
+            },
+            {
+              "productId": "596221",
+              "merchantCategoryId": "0210050904",
+              "skuId": "596221",
+              "isPrimeEligible": false,
+              "displayName": "Tarugo volcanita con tornillo 6 unidades",
+              "brand": "Fixser",
+              "media": {
+                "id": "596221",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [
+                {
+                  "description": "Despacho Gratis",
+                  "value": ""
+                }
+              ],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "2.490",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 2490
+                }
+              ],
+              "totalReviews": "3",
+              "rating": "5",
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Material",
+                  "value": "Acero"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/596221/public",
+                "https://media.falabella.com/sodimacCL/596221_001/public",
+                "https://media.falabella.com/sodimacCL/596221_01/public",
+                "https://media.falabella.com/sodimacCL/596221_13/public",
+                "https://media.falabella.com/sodimacCL/596221_17/public",
+                "https://media.falabella.com/sodimacCL/596221_26/public"
+              ]
+            },
+            {
+              "productId": "3556484",
+              "merchantCategoryId": "0210050904",
+              "skuId": "3556484",
+              "isPrimeEligible": false,
+              "displayName": "Tarugo multiuso sx6+tornillo 10 unidades",
+              "brand": "Fischer",
+              "media": {
+                "id": "3556484",
+                "type": "SKU",
+                "onImageHover": "ZOOM"
+              },
+              "badges": [],
+              "events": [],
+              "prices": [
+                {
+                  "label": "",
+                  "type": "NORMAL",
+                  "symbol": "$",
+                  "price": "2.790",
+                  "unit": "C/U",
+                  "priceWithoutFormatting": 2790
+                }
+              ],
+              "variants": [],
+              "multiPurposeIcon": {},
+              "highlights": [
+                {
+                  "key": "Material",
+                  "value": "Metal"
+                }
+              ],
+              "accumulativePoints": [],
+              "isPromoted": false,
+              "isInternational": "",
+              "installments": {},
+              "mediaUrls": [
+                "https://media.falabella.com/sodimacCL/3556484/public",
+                "https://media.falabella.com/sodimacCL/3556484_001/public",
+                "https://media.falabella.com/sodimacCL/3556484_01/public",
+                "https://media.falabella.com/sodimacCL/3556484_21/public",
+                "https://media.falabella.com/sodimacCL/3556484_22/public",
+                "https://media.falabella.com/sodimacCL/3556484_26/public"
+              ]
+            }
+          ],
+          "sponsoredBanners": [],
+          "selectedFacets": [],
+          "facets": [
+            {
+              "name": "Otras opciones",
+              "toolTip": "",
+              "type": "MULTI_SELECT",
+              "displayName": "Otras opciones",
+              "isAlwaysVisible": true,
+              "values": [
+                {
+                  "label": "Oportunidad única CMR",
+                  "value": "true",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.derived.cmr.event.active.96=true",
+                  "count": "4"
+                }
+              ],
+              "isExpandible": false,
+              "isQuickFacet": false
+            },
+            {
+              "name": "variant.skuCollectionIds",
+              "toolTip": "",
+              "type": "MULTI_SELECT",
+              "displayName": "Eventos",
+              "isAlwaysVisible": true,
+              "values": [
+                {
+                  "label": "Despacho Gratis",
+                  "value": "FS004_faceta",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.variant.skuCollectionIds=FS004_faceta",
+                  "count": "425"
+                },
+                {
+                  "label": "Despacho Gratis",
+                  "value": "FS005_faceta",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.variant.skuCollectionIds=FS005_faceta",
+                  "count": "11"
+                },
+                {
+                  "label": "Despacho Gratis",
+                  "value": "FS006_faceta",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.variant.skuCollectionIds=FS006_faceta",
+                  "count": "1"
+                }
+              ],
+              "isExpandible": false,
+              "isQuickFacet": false
+            },
+            {
+              "name": "Opciones de entrega",
+              "toolTip": "Aquí puedes filtrar productos por disponibilidad de stock y métodos de entrega",
+              "type": "MULTI_SELECT",
+              "displayName": "Opciones de entrega",
+              "isAlwaysVisible": true,
+              "values": [
+                {
+                  "label": "Despacho a domicilio",
+                  "value": "130617",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.availability.homedeliveryZones=130617",
+                  "count": "1555"
+                },
+                {
+                  "label": "Retiro en tienda",
+                  "value": "130617",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.availability.pickupinstoreZones=130617",
+                  "count": "1613"
+                },
+                {
+                  "label": "Stock en tienda",
+                  "value": "130617",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.availability.buyatstoreZones=130617",
+                  "count": "1406"
+                }
+              ],
+              "isExpandible": false,
+              "isQuickFacet": false
+            },
+            {
+              "name": "product.L1_category_paths",
+              "toolTip": "",
+              "type": "SINGLE_SELECT_AS_LINK",
+              "displayName": "Categoría",
+              "values": [
+                {
+                  "label": "Fijaciones y Adhesivos",
+                  "value": "cat4850146%257C%257CConstrucci%25C3%25B3n%2520y%2520Ferreter%25C3%25ADa%252Fscat913775%257C%257CFijaciones%2520y%2520Adhesivos",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat4850146%257C%257CConstrucci%25C3%25B3n%2520y%2520Ferreter%25C3%25ADa%252Fscat913775%257C%257CFijaciones%2520y%2520Adhesivos",
+                  "count": "1231",
+                  "id": "scat913775",
+                  "href": "/sodimac-cl/category/scat913775/fijaciones-y-adhesivos/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat4850146%257C%257CConstrucci%25C3%25B3n%2520y%2520Ferreter%25C3%25ADa%252Fscat913775%257C%257CFijaciones%2520y%2520Adhesivos"
+                },
+                {
+                  "label": "+PRO",
+                  "value": "cat3400024%257C%257CDestacados%252Fcat10550011%257C%257C%252BPRO",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat3400024%257C%257CDestacados%252Fcat10550011%257C%257C%252BPRO",
+                  "count": "147",
+                  "id": "cat10550011",
+                  "href": "/sodimac-cl/category/cat10550011/pro/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat3400024%257C%257CDestacados%252Fcat10550011%257C%257C%252BPRO"
+                },
+                {
+                  "label": "Cerraduras y Quincallería",
+                  "value": "cat8840002%257C%257CPisos%252C%2520Pinturas%2520y%2520Terminaciones%252Fcat8720063%257C%257CCerraduras%2520y%2520Quincaller%25C3%25ADa",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat8840002%257C%257CPisos%252C%2520Pinturas%2520y%2520Terminaciones%252Fcat8720063%257C%257CCerraduras%2520y%2520Quincaller%25C3%25ADa",
+                  "count": "142",
+                  "id": "cat8720063",
+                  "href": "/sodimac-cl/category/cat8720063/cerraduras-y-quincalleria/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat8840002%257C%257CPisos%252C%2520Pinturas%2520y%2520Terminaciones%252Fcat8720063%257C%257CCerraduras%2520y%2520Quincaller%25C3%25ADa"
+                },
+                {
+                  "label": "Cortinas y Rollers",
+                  "value": "cat8720066%257C%257CDecoraci%25C3%25B3n%252C%2520Menaje%2520e%2520Iluminaci%25C3%25B3n%252Fscat963247%257C%257CCortinas%2520y%2520Rollers",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat8720066%257C%257CDecoraci%25C3%25B3n%252C%2520Menaje%2520e%2520Iluminaci%25C3%25B3n%252Fscat963247%257C%257CCortinas%2520y%2520Rollers",
+                  "count": "140",
+                  "id": "scat963247",
+                  "href": "/sodimac-cl/category/scat963247/cortinas-y-rollers/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat8720066%257C%257CDecoraci%25C3%25B3n%252C%2520Menaje%2520e%2520Iluminaci%25C3%25B3n%252Fscat963247%257C%257CCortinas%2520y%2520Rollers"
+                },
+                {
+                  "label": "Quincallería para Muebles y Closet",
+                  "value": "cat6590006%257C%257CPuertas%252C%2520Ventanas%2520y%2520Quincaller%25C3%25ADa%252Fscat933823%257C%257CQuincaller%25C3%25ADa%2520para%2520Muebles%2520y%2520Closet",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat6590006%257C%257CPuertas%252C%2520Ventanas%2520y%2520Quincaller%25C3%25ADa%252Fscat933823%257C%257CQuincaller%25C3%25ADa%2520para%2520Muebles%2520y%2520Closet",
+                  "count": "66",
+                  "id": "scat933823",
+                  "href": "/sodimac-cl/category/scat933823/quincalleria-para-muebles-y-closet/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat6590006%257C%257CPuertas%252C%2520Ventanas%2520y%2520Quincaller%25C3%25ADa%252Fscat933823%257C%257CQuincaller%25C3%25ADa%2520para%2520Muebles%2520y%2520Closet"
+                },
+                {
+                  "label": "Herramientas Manuales",
+                  "value": "scat913751%257C%257CHerramientas%2520y%2520Maquinarias%252Fscat913782%257C%257CHerramientas%2520Manuales",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=scat913751%257C%257CHerramientas%2520y%2520Maquinarias%252Fscat913782%257C%257CHerramientas%2520Manuales",
+                  "count": "45",
+                  "id": "scat913782",
+                  "href": "/sodimac-cl/category/scat913782/herramientas-manuales/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=scat913751%257C%257CHerramientas%2520y%2520Maquinarias%252Fscat913782%257C%257CHerramientas%2520Manuales"
+                },
+                {
+                  "label": "Muebles",
+                  "value": "cat5560002%257C%257CMuebles%2520y%2520Organizaci%25C3%25B3n%252Fcat440015%257C%257CMuebles",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat5560002%257C%257CMuebles%2520y%2520Organizaci%25C3%25B3n%252Fcat440015%257C%257CMuebles",
+                  "count": "44",
+                  "id": "cat440015",
+                  "href": "/sodimac-cl/category/cat440015/muebles/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat5560002%257C%257CMuebles%2520y%2520Organizaci%25C3%25B3n%252Fcat440015%257C%257CMuebles"
+                },
+                {
+                  "label": "Cocina",
+                  "value": "cat5560004%257C%257CBa%25C3%25B1o%252C%2520Cocina%2520y%2520Limpieza%252Fcat2640001%257C%257CCocina",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat5560004%257C%257CBa%25C3%25B1o%252C%2520Cocina%2520y%2520Limpieza%252Fcat2640001%257C%257CCocina",
+                  "count": "37",
+                  "id": "cat2640001",
+                  "href": "/sodimac-cl/category/cat2640001/cocina/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat5560004%257C%257CBa%25C3%25B1o%252C%2520Cocina%2520y%2520Limpieza%252Fcat2640001%257C%257CCocina"
+                },
+                {
+                  "label": "Productos Ecológicos",
+                  "value": "cat3400024%257C%257CDestacados%252Fcat10090009%257C%257CProductos%2520Ecol%25C3%25B3gicos",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat3400024%257C%257CDestacados%252Fcat10090009%257C%257CProductos%2520Ecol%25C3%25B3gicos",
+                  "count": "33",
+                  "id": "cat10090009",
+                  "href": "/sodimac-cl/category/cat10090009/productos-ecologicos/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat3400024%257C%257CDestacados%252Fcat10090009%257C%257CProductos%2520Ecol%25C3%25B3gicos"
+                },
+                {
+                  "label": "Gasfitería",
+                  "value": "cat4850146%257C%257CConstrucci%25C3%25B3n%2520y%2520Ferreter%25C3%25ADa%252Fscat913756%257C%257CGasfiter%25C3%25ADa",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat4850146%257C%257CConstrucci%25C3%25B3n%2520y%2520Ferreter%25C3%25ADa%252Fscat913756%257C%257CGasfiter%25C3%25ADa",
+                  "count": "14",
+                  "id": "scat913756",
+                  "href": "/sodimac-cl/category/scat913756/gasfiteria/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat4850146%257C%257CConstrucci%25C3%25B3n%2520y%2520Ferreter%25C3%25ADa%252Fscat913756%257C%257CGasfiter%25C3%25ADa"
+                },
+                {
+                  "label": "Baño",
+                  "value": "cat5560004%257C%257CBa%25C3%25B1o%252C%2520Cocina%2520y%2520Limpieza%252Fcat983345%257C%257CBa%25C3%25B1o",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat5560004%257C%257CBa%25C3%25B1o%252C%2520Cocina%2520y%2520Limpieza%252Fcat983345%257C%257CBa%25C3%25B1o",
+                  "count": "11",
+                  "id": "cat983345",
+                  "href": "/sodimac-cl/category/cat983345/bano/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat5560004%257C%257CBa%25C3%25B1o%252C%2520Cocina%2520y%2520Limpieza%252Fcat983345%257C%257CBa%25C3%25B1o"
+                },
+                {
+                  "label": "Pisos y Revestimientos",
+                  "value": "cat8840002%257C%257CPisos%252C%2520Pinturas%2520y%2520Terminaciones%252Fscat963885%257C%257CPisos%2520y%2520Revestimientos",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat8840002%257C%257CPisos%252C%2520Pinturas%2520y%2520Terminaciones%252Fscat963885%257C%257CPisos%2520y%2520Revestimientos",
+                  "count": "9",
+                  "id": "scat963885",
+                  "href": "/sodimac-cl/category/scat963885/pisos-y-revestimientos/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat8840002%257C%257CPisos%252C%2520Pinturas%2520y%2520Terminaciones%252Fscat963885%257C%257CPisos%2520y%2520Revestimientos"
+                },
+                {
+                  "label": "Quincallería para Puertas y Ventanas",
+                  "value": "cat6590006%257C%257CPuertas%252C%2520Ventanas%2520y%2520Quincaller%25C3%25ADa%252Fscat913776%257C%257CQuincaller%25C3%25ADa%2520para%2520Puertas%2520y%2520Ventanas",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat6590006%257C%257CPuertas%252C%2520Ventanas%2520y%2520Quincaller%25C3%25ADa%252Fscat913776%257C%257CQuincaller%25C3%25ADa%2520para%2520Puertas%2520y%2520Ventanas",
+                  "count": "8",
+                  "id": "scat913776",
+                  "href": "/sodimac-cl/category/scat913776/quincalleria-para-puertas-y-ventanas/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat6590006%257C%257CPuertas%252C%2520Ventanas%2520y%2520Quincaller%25C3%25ADa%252Fscat913776%257C%257CQuincaller%25C3%25ADa%2520para%2520Puertas%2520y%2520Ventanas"
+                },
+                {
+                  "label": "Calefacción",
+                  "value": "cat4850546%257C%257CElectrohogar%2520y%2520Climatizaci%25C3%25B3n%252Fcat1130102%257C%257CCalefacci%25C3%25B3n",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat4850546%257C%257CElectrohogar%2520y%2520Climatizaci%25C3%25B3n%252Fcat1130102%257C%257CCalefacci%25C3%25B3n",
+                  "count": "7",
+                  "id": "cat1130102",
+                  "href": "/sodimac-cl/category/cat1130102/calefaccion/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat4850546%257C%257CElectrohogar%2520y%2520Climatizaci%25C3%25B3n%252Fcat1130102%257C%257CCalefacci%25C3%25B3n"
+                },
+                {
+                  "label": "Cerraduras y Chapas",
+                  "value": "cat6590006%257C%257CPuertas%252C%2520Ventanas%2520y%2520Quincaller%25C3%25ADa%252Fscat922360%257C%257CCerraduras%2520y%2520Chapas",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat6590006%257C%257CPuertas%252C%2520Ventanas%2520y%2520Quincaller%25C3%25ADa%252Fscat922360%257C%257CCerraduras%2520y%2520Chapas",
+                  "count": "7",
+                  "id": "scat922360",
+                  "href": "/sodimac-cl/category/scat922360/cerraduras-y-chapas/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat6590006%257C%257CPuertas%252C%2520Ventanas%2520y%2520Quincaller%25C3%25ADa%252Fscat922360%257C%257CCerraduras%2520y%2520Chapas"
+                },
+                {
+                  "label": "Muebles de Dormitorio",
+                  "value": "cat5560002%257C%257CMuebles%2520y%2520Organizaci%25C3%25B3n%252Fscat962678%257C%257CMuebles%2520de%2520Dormitorio",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat5560002%257C%257CMuebles%2520y%2520Organizaci%25C3%25B3n%252Fscat962678%257C%257CMuebles%2520de%2520Dormitorio",
+                  "count": "6",
+                  "id": "scat962678",
+                  "href": "/sodimac-cl/category/scat962678/muebles-de-dormitorio/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat5560002%257C%257CMuebles%2520y%2520Organizaci%25C3%25B3n%252Fscat962678%257C%257CMuebles%2520de%2520Dormitorio"
+                },
+                {
+                  "label": "Electricidad",
+                  "value": "cat4850146%257C%257CConstrucci%25C3%25B3n%2520y%2520Ferreter%25C3%25ADa%252Fscat913755%257C%257CElectricidad",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat4850146%257C%257CConstrucci%25C3%25B3n%2520y%2520Ferreter%25C3%25ADa%252Fscat913755%257C%257CElectricidad",
+                  "count": "5",
+                  "id": "scat913755",
+                  "href": "/sodimac-cl/category/scat913755/electricidad/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat4850146%257C%257CConstrucci%25C3%25B3n%2520y%2520Ferreter%25C3%25ADa%252Fscat913755%257C%257CElectricidad"
+                },
+                {
+                  "label": "Molduras y Guardapolvos",
+                  "value": "cat6590006%257C%257CPuertas%252C%2520Ventanas%2520y%2520Quincaller%25C3%25ADa%252Fcat640033%257C%257CMolduras%2520y%2520Guardapolvos",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat6590006%257C%257CPuertas%252C%2520Ventanas%2520y%2520Quincaller%25C3%25ADa%252Fcat640033%257C%257CMolduras%2520y%2520Guardapolvos",
+                  "count": "5",
+                  "id": "cat640033",
+                  "href": "/sodimac-cl/category/cat640033/molduras-y-guardapolvos/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat6590006%257C%257CPuertas%252C%2520Ventanas%2520y%2520Quincaller%25C3%25ADa%252Fcat640033%257C%257CMolduras%2520y%2520Guardapolvos"
+                },
+                {
+                  "label": "Ventanas",
+                  "value": "cat8840002%257C%257CPisos%252C%2520Pinturas%2520y%2520Terminaciones%252Fscat913799%257C%257CVentanas",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat8840002%257C%257CPisos%252C%2520Pinturas%2520y%2520Terminaciones%252Fscat913799%257C%257CVentanas",
+                  "count": "5",
+                  "id": "scat913799",
+                  "href": "/sodimac-cl/category/scat913799/ventanas/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat8840002%257C%257CPisos%252C%2520Pinturas%2520y%2520Terminaciones%252Fscat913799%257C%257CVentanas"
+                },
+                {
+                  "label": "Herramientas Eléctricas e Inalámbricas",
+                  "value": "scat913751%257C%257CHerramientas%2520y%2520Maquinarias%252Fscat913781%257C%257CHerramientas%2520El%25C3%25A9ctricas%2520e%2520Inal%25C3%25A1mbricas",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=scat913751%257C%257CHerramientas%2520y%2520Maquinarias%252Fscat913781%257C%257CHerramientas%2520El%25C3%25A9ctricas%2520e%2520Inal%25C3%25A1mbricas",
+                  "count": "5",
+                  "id": "scat913781",
+                  "href": "/sodimac-cl/category/scat913781/herramientas-electricas-e-inalambricas/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=scat913751%257C%257CHerramientas%2520y%2520Maquinarias%252Fscat913781%257C%257CHerramientas%2520El%25C3%25A9ctricas%2520e%2520Inal%25C3%25A1mbricas"
+                },
+                {
+                  "label": "Pisos para Dormitorio",
+                  "value": "cat7360002%257C%257CCategor%25C3%25ADas%2520Relacionadas%252Fcat4850445%257C%257CPisos%2520para%2520Dormitorio",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat7360002%257C%257CCategor%25C3%25ADas%2520Relacionadas%252Fcat4850445%257C%257CPisos%2520para%2520Dormitorio",
+                  "count": "4",
+                  "id": "cat4850445",
+                  "href": "/sodimac-cl/category/cat4850445/pisos-para-dormitorio/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat7360002%257C%257CCategor%25C3%25ADas%2520Relacionadas%252Fcat4850445%257C%257CPisos%2520para%2520Dormitorio"
+                },
+                {
+                  "label": "Pisos para Espacios Comunes",
+                  "value": "cat7360002%257C%257CCategor%25C3%25ADas%2520Relacionadas%252Fcat7360003%257C%257CPisos%2520para%2520Espacios%2520Comunes",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat7360002%257C%257CCategor%25C3%25ADas%2520Relacionadas%252Fcat7360003%257C%257CPisos%2520para%2520Espacios%2520Comunes",
+                  "count": "4",
+                  "id": "cat7360003",
+                  "href": "/sodimac-cl/category/cat7360003/pisos-para-espacios-comunes/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat7360002%257C%257CCategor%25C3%25ADas%2520Relacionadas%252Fcat7360003%257C%257CPisos%2520para%2520Espacios%2520Comunes"
+                },
+                {
+                  "label": "Pisos para Living",
+                  "value": "cat7360002%257C%257CCategor%25C3%25ADas%2520Relacionadas%252Fcat7620003%257C%257CPisos%2520para%2520Living",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat7360002%257C%257CCategor%25C3%25ADas%2520Relacionadas%252Fcat7620003%257C%257CPisos%2520para%2520Living",
+                  "count": "4",
+                  "id": "cat7620003",
+                  "href": "/sodimac-cl/category/cat7620003/pisos-para-living/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat7360002%257C%257CCategor%25C3%25ADas%2520Relacionadas%252Fcat7620003%257C%257CPisos%2520para%2520Living"
+                },
+                {
+                  "label": "Griferías",
+                  "value": "cat7360002%257C%257CCategor%25C3%25ADas%2520Relacionadas%252Fscat922149%257C%257CGrifer%25C3%25ADas",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat7360002%257C%257CCategor%25C3%25ADas%2520Relacionadas%252Fscat922149%257C%257CGrifer%25C3%25ADas",
+                  "count": "3",
+                  "id": "scat922149",
+                  "href": "/sodimac-cl/category/scat922149/griferias/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat7360002%257C%257CCategor%25C3%25ADas%2520Relacionadas%252Fscat922149%257C%257CGrifer%25C3%25ADas"
+                },
+                {
+                  "label": "Electrodomésticos del Hogar",
+                  "value": "cat4850546%257C%257CElectrohogar%2520y%2520Climatizaci%25C3%25B3n%252Fcat8720079%257C%257CElectrodom%25C3%25A9sticos%2520del%2520Hogar",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat4850546%257C%257CElectrohogar%2520y%2520Climatizaci%25C3%25B3n%252Fcat8720079%257C%257CElectrodom%25C3%25A9sticos%2520del%2520Hogar",
+                  "count": "2",
+                  "id": "cat8720079",
+                  "href": "/sodimac-cl/category/cat8720079/electrodomesticos-del-hogar/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat4850546%257C%257CElectrohogar%2520y%2520Climatizaci%25C3%25B3n%252Fcat8720079%257C%257CElectrodom%25C3%25A9sticos%2520del%2520Hogar"
+                },
+                {
+                  "label": "Estanterias, Cajas y Perchas",
+                  "value": "cat5560002%257C%257CMuebles%2520y%2520Organizaci%25C3%25B3n%252Fcat10880001%257C%257CEstanterias%252C%2520Cajas%2520y%2520Perchas",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat5560002%257C%257CMuebles%2520y%2520Organizaci%25C3%25B3n%252Fcat10880001%257C%257CEstanterias%252C%2520Cajas%2520y%2520Perchas",
+                  "count": "2",
+                  "id": "cat10880001",
+                  "href": "/sodimac-cl/category/cat10880001/estanterias-cajas-y-perchas/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat5560002%257C%257CMuebles%2520y%2520Organizaci%25C3%25B3n%252Fcat10880001%257C%257CEstanterias%252C%2520Cajas%2520y%2520Perchas"
+                },
+                {
+                  "label": "Seguridad",
+                  "value": "cat4850146%257C%257CConstrucci%25C3%25B3n%2520y%2520Ferreter%25C3%25ADa%252Fscat913800%257C%257CSeguridad",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat4850146%257C%257CConstrucci%25C3%25B3n%2520y%2520Ferreter%25C3%25ADa%252Fscat913800%257C%257CSeguridad",
+                  "count": "1",
+                  "id": "scat913800",
+                  "href": "/sodimac-cl/category/scat913800/seguridad/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat4850146%257C%257CConstrucci%25C3%25B3n%2520y%2520Ferreter%25C3%25ADa%252Fscat913800%257C%257CSeguridad"
+                },
+                {
+                  "label": "Encimeras, Hornos y Campanas",
+                  "value": "cat4850546%257C%257CElectrohogar%2520y%2520Climatizaci%25C3%25B3n%252Fcat7090001%257C%257CEncimeras%252C%2520Hornos%2520y%2520Campanas",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat4850546%257C%257CElectrohogar%2520y%2520Climatizaci%25C3%25B3n%252Fcat7090001%257C%257CEncimeras%252C%2520Hornos%2520y%2520Campanas",
+                  "count": "1",
+                  "id": "cat7090001",
+                  "href": "/sodimac-cl/category/cat7090001/encimeras-hornos-y-campanas/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat4850546%257C%257CElectrohogar%2520y%2520Climatizaci%25C3%25B3n%252Fcat7090001%257C%257CEncimeras%252C%2520Hornos%2520y%2520Campanas"
+                },
+                {
+                  "label": "Muebles de Living y Estar",
+                  "value": "cat5560002%257C%257CMuebles%2520y%2520Organizaci%25C3%25B3n%252Fcat180005%257C%257CMuebles%2520de%2520Living%2520y%2520Estar",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat5560002%257C%257CMuebles%2520y%2520Organizaci%25C3%25B3n%252Fcat180005%257C%257CMuebles%2520de%2520Living%2520y%2520Estar",
+                  "count": "1",
+                  "id": "cat180005",
+                  "href": "/sodimac-cl/category/cat180005/muebles-de-living-y-estar/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat5560002%257C%257CMuebles%2520y%2520Organizaci%25C3%25B3n%252Fcat180005%257C%257CMuebles%2520de%2520Living%2520y%2520Estar"
+                },
+                {
+                  "label": "Complementos de Baño",
+                  "value": "cat5560004%257C%257CBa%25C3%25B1o%252C%2520Cocina%2520y%2520Limpieza%252Fcat8720049%257C%257CComplementos%2520de%2520Ba%25C3%25B1o",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat5560004%257C%257CBa%25C3%25B1o%252C%2520Cocina%2520y%2520Limpieza%252Fcat8720049%257C%257CComplementos%2520de%2520Ba%25C3%25B1o",
+                  "count": "1",
+                  "id": "cat8720049",
+                  "href": "/sodimac-cl/category/cat8720049/complementos-de-bano/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat5560004%257C%257CBa%25C3%25B1o%252C%2520Cocina%2520y%2520Limpieza%252Fcat8720049%257C%257CComplementos%2520de%2520Ba%25C3%25B1o"
+                },
+                {
+                  "label": "Textil Hogar y Accesorios de Baño",
+                  "value": "cat8720066%257C%257CDecoraci%25C3%25B3n%252C%2520Menaje%2520e%2520Iluminaci%25C3%25B3n%252Fcat10890020%257C%257CTextil%2520Hogar%2520y%2520Accesorios%2520de%2520Ba%25C3%25B1o",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat8720066%257C%257CDecoraci%25C3%25B3n%252C%2520Menaje%2520e%2520Iluminaci%25C3%25B3n%252Fcat10890020%257C%257CTextil%2520Hogar%2520y%2520Accesorios%2520de%2520Ba%25C3%25B1o",
+                  "count": "1",
+                  "id": "cat10890020",
+                  "href": "/sodimac-cl/category/cat10890020/textil-hogar-y-accesorios-de-bano/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=cat8720066%257C%257CDecoraci%25C3%25B3n%252C%2520Menaje%2520e%2520Iluminaci%25C3%25B3n%252Fcat10890020%257C%257CTextil%2520Hogar%2520y%2520Accesorios%2520de%2520Ba%25C3%25B1o"
+                },
+                {
+                  "label": "Seguridad, Lubricantes y Otros",
+                  "value": "scat913458%257C%257CAutom%25C3%25B3vil%252Fcat8720046%257C%257CSeguridad%252C%2520Lubricantes%2520y%2520Otros",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=scat913458%257C%257CAutom%25C3%25B3vil%252Fcat8720046%257C%257CSeguridad%252C%2520Lubricantes%2520y%2520Otros",
+                  "count": "1",
+                  "id": "cat8720046",
+                  "href": "/sodimac-cl/category/cat8720046/seguridad-lubricantes-y-otros/?Ntt=Tornillo&currentpage=1&f.product.L1_category_paths=scat913458%257C%257CAutom%25C3%25B3vil%252Fcat8720046%257C%257CSeguridad%252C%2520Lubricantes%2520y%2520Otros"
+                }
+              ],
+              "isExpandible": false,
+              "isQuickFacet": false
+            },
+            {
+              "name": "product.attribute.Estilo_deco",
+              "toolTip": "",
+              "type": "MULTI_SELECT",
+              "displayName": "Deco Lovers",
+              "values": [
+                {
+                  "label": "boho chic",
+                  "value": "boho%2520chic",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.attribute.Estilo_deco=boho%2520chic",
+                  "count": "33"
+                },
+                {
+                  "label": "clasico",
+                  "value": "clasico",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.attribute.Estilo_deco=clasico",
+                  "count": "30"
+                },
+                {
+                  "label": "ejecutivo urbano",
+                  "value": "ejecutivo%2520urbano",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.attribute.Estilo_deco=ejecutivo%2520urbano",
+                  "count": "13"
+                },
+                {
+                  "label": "industrial",
+                  "value": "industrial",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.attribute.Estilo_deco=industrial",
+                  "count": "7"
+                },
+                {
+                  "label": "nordico",
+                  "value": "nordico",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.attribute.Estilo_deco=nordico",
+                  "count": "96"
+                },
+                {
+                  "label": "urbano industrial",
+                  "value": "urbano%2520industrial",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.attribute.Estilo_deco=urbano%2520industrial",
+                  "count": "2"
+                },
+                {
+                  "label": "vintage moderno",
+                  "value": "vintage%2520moderno",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.attribute.Estilo_deco=vintage%2520moderno",
+                  "count": "5"
+                }
+              ],
+              "isExpandible": false,
+              "isQuickFacet": false
+            },
+            {
+              "name": "product.attribute.Criterio_ECO_Prioritario",
+              "toolTip": "",
+              "type": "MULTI_SELECT",
+              "displayName": "Eco Sustentable",
+              "values": [
+                {
+                  "label": "hogar saludable",
+                  "value": "hogar%2520saludable",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.attribute.Criterio_ECO_Prioritario=hogar%2520saludable",
+                  "count": "33"
+                }
+              ],
+              "isExpandible": false,
+              "isQuickFacet": false
+            },
+            {
+              "name": "product.brandName",
+              "toolTip": "",
+              "type": "MULTI_SELECT",
+              "displayName": "Marca",
+              "values": [
+                {
+                  "label": "alfer",
+                  "value": "alfer",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=alfer",
+                  "count": "4"
+                },
+                {
+                  "label": "ar shelving",
+                  "value": "ar%2520shelving",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=ar%2520shelving",
+                  "count": "1"
+                },
+                {
+                  "label": "bauker",
+                  "value": "bauker",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=bauker",
+                  "count": "21"
+                },
+                {
+                  "label": "bosch",
+                  "value": "bosch",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=bosch",
+                  "count": "4"
+                },
+                {
+                  "label": "bticino",
+                  "value": "bticino",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=bticino",
+                  "count": "2"
+                },
+                {
+                  "label": "dairu",
+                  "value": "dairu",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=dairu",
+                  "count": "1"
+                },
+                {
+                  "label": "deck raiser",
+                  "value": "deck%2520raiser",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=deck%2520raiser",
+                  "count": "4"
+                },
+                {
+                  "label": "dewalt",
+                  "value": "dewalt",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=dewalt",
+                  "count": "1"
+                },
+                {
+                  "label": "dimafi",
+                  "value": "dimafi",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=dimafi",
+                  "count": "5"
+                },
+                {
+                  "label": "duschy",
+                  "value": "duschy",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=duschy",
+                  "count": "1"
+                },
+                {
+                  "label": "dvp",
+                  "value": "dvp",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=dvp",
+                  "count": "4"
+                },
+                {
+                  "label": "exit",
+                  "value": "exit",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=exit",
+                  "count": "2"
+                },
+                {
+                  "label": "ferromir",
+                  "value": "ferromir",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=ferromir",
+                  "count": "6"
+                },
+                {
+                  "label": "fischer",
+                  "value": "fischer",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=fischer",
+                  "count": "54"
+                },
+                {
+                  "label": "fixser",
+                  "value": "fixser",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=fixser",
+                  "count": "378"
+                },
+                {
+                  "label": "fluidmaster",
+                  "value": "fluidmaster",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=fluidmaster",
+                  "count": "1"
+                },
+                {
+                  "label": "gamet",
+                  "value": "gamet",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=gamet",
+                  "count": "5"
+                },
+                {
+                  "label": "grifesa",
+                  "value": "grifesa",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=grifesa",
+                  "count": "3"
+                },
+                {
+                  "label": "holztek",
+                  "value": "holztek",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=holztek",
+                  "count": "5"
+                },
+                {
+                  "label": "homemobili",
+                  "value": "homemobili",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=homemobili",
+                  "count": "41"
+                },
+                {
+                  "label": "huamanciza",
+                  "value": "huamanciza",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=huamanciza",
+                  "count": "1"
+                },
+                {
+                  "label": "irwin",
+                  "value": "irwin",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=irwin",
+                  "count": "17"
+                },
+                {
+                  "label": "janome",
+                  "value": "janome",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=janome",
+                  "count": "2"
+                },
+                {
+                  "label": "kraown",
+                  "value": "kraown",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=kraown",
+                  "count": "1"
+                },
+                {
+                  "label": "lexo",
+                  "value": "lexo",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=lexo",
+                  "count": "3"
+                },
+                {
+                  "label": "mamut",
+                  "value": "mamut",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=mamut",
+                  "count": "726"
+                },
+                {
+                  "label": "metalhsa",
+                  "value": "metalhsa",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=metalhsa",
+                  "count": "70"
+                },
+                {
+                  "label": "nibsa",
+                  "value": "nibsa",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=nibsa",
+                  "count": "1"
+                },
+                {
+                  "label": "poli",
+                  "value": "poli",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=poli",
+                  "count": "5"
+                },
+                {
+                  "label": "redline",
+                  "value": "redline",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=redline",
+                  "count": "1"
+                },
+                {
+                  "label": "rh",
+                  "value": "rh",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=rh",
+                  "count": "28"
+                },
+                {
+                  "label": "rheem",
+                  "value": "rheem",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=rheem",
+                  "count": "2"
+                },
+                {
+                  "label": "rocco",
+                  "value": "rocco",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=rocco",
+                  "count": "1"
+                },
+                {
+                  "label": "sensi dacqua",
+                  "value": "sensi%2520dacqua",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=sensi%2520dacqua",
+                  "count": "1"
+                },
+                {
+                  "label": "simpson strong-tie",
+                  "value": "simpson%2520strong-tie",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=simpson%2520strong-tie",
+                  "count": "8"
+                },
+                {
+                  "label": "spax american screw",
+                  "value": "spax%2520american%2520screw",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=spax%2520american%2520screw",
+                  "count": "137"
+                },
+                {
+                  "label": "splendid",
+                  "value": "splendid",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=splendid",
+                  "count": "1"
+                },
+                {
+                  "label": "tap",
+                  "value": "tap",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=tap",
+                  "count": "1"
+                },
+                {
+                  "label": "tesa",
+                  "value": "tesa",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=tesa",
+                  "count": "3"
+                },
+                {
+                  "label": "thor",
+                  "value": "thor",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=thor",
+                  "count": "1"
+                },
+                {
+                  "label": "ubermann",
+                  "value": "ubermann",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=ubermann",
+                  "count": "10"
+                },
+                {
+                  "label": "veloti",
+                  "value": "veloti",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=veloti",
+                  "count": "1"
+                },
+                {
+                  "label": "vidhi",
+                  "value": "vidhi",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=vidhi",
+                  "count": "9"
+                },
+                {
+                  "label": "viewtex",
+                  "value": "viewtex",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=viewtex",
+                  "count": "69"
+                },
+                {
+                  "label": "vinilit",
+                  "value": "vinilit",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=vinilit",
+                  "count": "8"
+                },
+                {
+                  "label": "wd-40",
+                  "value": "wd-40",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.product.brandName=wd-40",
+                  "count": "1"
+                }
+              ],
+              "showWithLink": true,
+              "isExpandible": false,
+              "isQuickFacet": false
+            },
+            {
+              "name": "Precio",
+              "toolTip": "",
+              "type": "MULTI_SELECT_WITH_RANGE",
+              "range": {
+                "min": "130",
+                "max": "1199990",
+                "label": "derived.price.event.search.96"
+              },
+              "currencySymbol": "$",
+              "displayName": "Precio",
+              "values": [
+                {
+                  "label": "Hasta $5.000",
+                  "value": "1|Hasta $5.000",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.range.derived.price.event.search.96=1%257CHasta%2520%25245.000",
+                  "count": "1039"
+                },
+                {
+                  "label": "$5.000 - $10.000",
+                  "value": "2|$5.000 - $10.000",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.range.derived.price.event.search.96=2%257C%25245.000%2520-%2520%252410.000",
+                  "count": "224"
+                },
+                {
+                  "label": "$10.000 - $50.000",
+                  "value": "3|$10.000 - $50.000",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.range.derived.price.event.search.96=3%257C%252410.000%2520-%2520%252450.000",
+                  "count": "275"
+                },
+                {
+                  "label": "$50.000 - $100.000",
+                  "value": "4|$50.000 - $100.000",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.range.derived.price.event.search.96=4%257C%252450.000%2520-%2520%2524100.000",
+                  "count": "56"
+                },
+                {
+                  "label": "$100.000 - $150.000",
+                  "value": "5|$100.000 - $150.000",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.range.derived.price.event.search.96=5%257C%2524100.000%2520-%2520%2524150.000",
+                  "count": "38"
+                },
+                {
+                  "label": "$150.000 - $300.000",
+                  "value": "6|$150.000 - $300.000",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.range.derived.price.event.search.96=6%257C%2524150.000%2520-%2520%2524300.000",
+                  "count": "17"
+                },
+                {
+                  "label": "$300.000 - $500.000",
+                  "value": "7|$300.000 - $500.000",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.range.derived.price.event.search.96=7%257C%2524300.000%2520-%2520%2524500.000",
+                  "count": "4"
+                },
+                {
+                  "label": "$500.000 - $1.000.000",
+                  "value": "8|$500.000 - $1.000.000",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.range.derived.price.event.search.96=8%257C%2524500.000%2520-%2520%25241.000.000",
+                  "count": "3"
+                },
+                {
+                  "label": "Desde $1.000.000",
+                  "value": "9|Desde $1.000.000",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.range.derived.price.event.search.96=9%257CDesde%2520%25241.000.000",
+                  "count": "1"
+                }
+              ],
+              "isExpandible": false,
+              "isQuickFacet": false
+            },
+            {
+              "name": "range.product.averageOverallRating",
+              "toolTip": "",
+              "type": "MULTI_SELECT_WITH_RATINGS",
+              "displayName": "Opinión de nuestros clientes",
+              "values": [
+                {
+                  "label": "1",
+                  "value": "1",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.range.product.averageOverallRating=1",
+                  "count": "6"
+                },
+                {
+                  "label": "2",
+                  "value": "2",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.range.product.averageOverallRating=2",
+                  "count": "8"
+                },
+                {
+                  "label": "3",
+                  "value": "3",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.range.product.averageOverallRating=3",
+                  "count": "39"
+                },
+                {
+                  "label": "4",
+                  "value": "4",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.range.product.averageOverallRating=4",
+                  "count": "381"
+                },
+                {
+                  "label": "5",
+                  "value": "5",
+                  "selected": false,
+                  "url": "Ntt=Tornillo&currentpage=1&f.range.product.averageOverallRating=5",
+                  "count": "370"
+                }
+              ],
+              "isExpandible": false,
+              "isQuickFacet": false
+            }
+          ],
+          "pagination": {
+            "count": 1651,
+            "perPage": 28,
+            "currentPage": 1
+          },
+          "relatedKeywords": [],
+          "sortOptions": [
+            {
+              "label": "Recomendados",
+              "isSelected": true,
+              "url": "Ntt=Tornillo&currentpage=1&sortBy=_score,desc"
+            },
+            {
+              "label": "Precio de menor a mayor",
+              "isSelected": false,
+              "url": "Ntt=Tornillo&currentpage=1&sortBy=derived.price.event.search.96,asc"
+            },
+            {
+              "label": "Precio de mayor a menor",
+              "isSelected": false,
+              "url": "Ntt=Tornillo&currentpage=1&sortBy=derived.price.event.search.96,desc"
+            },
+            {
+              "label": "Nuevos",
+              "isSelected": false,
+              "url": "Ntt=Tornillo&currentpage=1&sortBy=product.attribute.new_until,desc"
+            },
+            {
+              "label": "Los mejor evaluados",
+              "isSelected": false,
+              "url": "Ntt=Tornillo&currentpage=1&sortBy=product.averageOverallRating,desc"
+            },
+            {
+              "label": "Nombre",
+              "isSelected": false,
+              "url": "Ntt=Tornillo&currentpage=1&sortBy=variant.name,asc"
+            },
+            {
+              "label": "Marca",
+              "isSelected": false,
+              "url": "Ntt=Tornillo&currentpage=1&sortBy=product.brandName,asc"
+            }
+          ],
+          "autocorrections": [],
+          "viewOptions": [
+            {
+              "type": "GRID",
+              "columns": 4,
+              "default": true,
+              "visible": true
+            },
+            {
+              "type": "LIST",
+              "columns": 1,
+              "default": false,
+              "visible": true
+            }
+          ],
+          "endPoints": {
+            "media": {
+              "url": "https://sodimac.scene7.com/is/image//SodimacCL/"
+            }
+          },
+          "banners": [],
+          "queryId": "639f98da-7447-4de3-b96c-f68aefa62b98",
+          "smartBanner": {}
+        },
+        "searchTerm": "Tornillo",
+        "tenant": "sodimac-cl",
+        "xlpRecoCarouselPosition": "SEARCH",
+        "auctionIds": []
+      },
+      "query": {
+        "Ntt": "Tornillo",
+        "tenant": "sodimac-cl"
+      },
+      "categoryProps": {
+        "categoryData": {},
+        "auctionIds": []
+      },
+      "collectionProps": {},
+      "searchSeoProps": {}
+    },
+    "features": {
+      "isCMRBannerEnabled": true,
+      "isBoomSubscriptionEnabled": false,
+      "isAvailabilityEnabled": true,
+      "crossSellingV2": {
+        "position": "PDP-GRD-1"
+      },
+      "paintM2CalculatorPerformanceMeasurementUnit": "m2",
+      "cfDefaultImageUrl": "https://imagedelivery.net/4fYuQyy-r8_rpBpcY7lH_A/Sodimac/NonAndes/espanol_default/public",
+      "bazaarVoicePassKey": "cahO0r4L2cYAP1ow2qR30HK4dpbhzdj3Gp8pmb7aQHdBM",
+      "components": [
+        {
+          "contentType": "smart_app_banner",
+          "config": {
+            "goText": "Ir",
+            "cancelText": "Ahora no",
+            "redirect": "https://ms935.app.goo.gl/?apn=cl.sodimac&isi=532353705&ibi=GerenciaSistemas.SubgerenciaIngenieriaSoftware.Francisco&utm_campaign=Descarga_App_Smart_Banner_CL&utm_medium=Banner&utm_source=Sodimac.cl&efr=1",
+            "labelText": "Continúa comprando desde tu app.",
+            "hideInSeconds": -18,
+            "days": 8,
+            "logo": "https://images.contentstack.io/v3/assets/blta0a3b70f2f9b36ba/blt4ac0ce8361d86522/5ee0ff31b522543a8d5266f4/main-logo-sodimac-responsive.jpg",
+            "labelSubText": "Más rápido y fácil."
+          },
+          "status": "publish"
+        },
+        {
+          "status": "publish",
+          "contentType": "locationv3",
+          "config": {
+            "textDictionary.login__documentLabelText": "RUT empresa",
+            "textDictionary.geolocation__popupTitleDesktop": "¿En qué comuna vas a comprar?",
+            "textDictionary.location__stateText": "Región",
+            "tenantId": "socl",
+            "textDictionary.login__emailPlaceholderText": "Ingresa tu correo electrónico",
+            "textDictionary.geolocation__popupDescriptionDesktopText": "Permítenos usar tu ubicación para mostrarte sólo los productos disponibles para tu comuna.",
+            "textDictionary.geolocation__popupDescriptionMobileText": "Te mostraremos productos disponibles para esta comuna y tiempos de entrega más precisos.",
+            "textDictionary.geolocation__popupTitleMobile": "¿Vas a comprar en #region?",
+            "textDictionary.address__chooseLocationText": "O selecciona otra comuna",
+            "textDictionary.location__modalText": "Te mostraremos productos disponibles para la comuna que selecciones y tiempos de entrega más precisos.",
+            "messageTimeout": 6000,
+            "textDictionary.address__numberOfItemsToDisplay": "3",
+            "catalystBaseUrl": "https://www.sodimac.cl",
+            "atgBaseUrl": "https://www.sodimac.cl",
+            "textDictionary.login__emailLabelText": "Correo electrónico",
+            "textDictionary.location__modalTitle": "¿En qué comuna vas a comprar?",
+            "geolocationRadious": 10,
+            "textDictionary.login__passwordLabelText": "Contraseña",
+            "textDictionary.login__passwordPlaceholderText": "Ingresa tu contraseña",
+            "textDictionary.location__municipalText": "Comuna"
+          }
+        }
+      ],
+      "isFreeShippingFacetEnabled": true,
+      "textDictionary": {
+        "header__login": "Iniciar sesión",
+        "pdp__productWithoutStockAvailable": "Producto sin stock disponible",
+        "nsr__tryAgainTipText": "Intenta nuevamente siguiendo estos consejos:",
+        "searchBar__typeaheadInputPlaceholder": "¿Qué estás buscando?",
+        "pdp__showMoreWarrantyModalSubTitle": "Protege tu inversión",
+        "pdp__showMoreWarrantyModalText4": "Soporte y asistencia técnica, sin gastos adicionales.",
+        "mediaComp__calculateBoxesText": "Calcula cuántas cajas necesitas para tu proyecto",
+        "slp-plp__notAvailableForDispatch": "No disponible para despacho",
+        "header__digitalCatalogText": "Catálogos digitales",
+        "header__boomHeaderToolTipText": "Disfruta de <b>envíos sin costo</b> por sólo $29.990 anual",
+        "seo__seoDescription": "Comprar categoryName filterName en Sodimac, la Tienda con los mejores precios. Pagos Online con Tarjeta Débito, Crédito, CMR, Baloto, Efecty o Cajas en Tienda. ",
+        "pdp__requestItHere": "Solicítala aquí",
+        "pdp__otherDistrict": "otros distritos",
+        "header__maintainLocationText": "Mantener",
+        "pdp__moreStores": "Ver Stock",
+        "slp-plp__didYouMean": "Quizás querías decir ",
+        "pdp__downloadManual": "Descarga de guías y manuales",
+        "slp-plp__backToTop": "Subir al inicio de la página",
+        "pdp__reviewTitle": "Reseñas",
+        "header__emailPlaceholderText": "Ingresa tu correo electrónico",
+        "nsr__yourSearchText2": "no arrojó resultados",
+        "zoneInfo__divgeoFieldOption4Text": "Selecciona tu comuna*",
+        "footer__subscribeToNewsletter": "Suscríbete a nuestras ofertas",
+        "zoneInfo__dropdownEmptyValue": "Selecciona una opción",
+        "header__emailText": "Correo electrónico",
+        "pdp__seeTheEntireCollection": "Ver toda la colección",
+        "nsr__moreInformationText": "Para más información, puedes comunicarte a nuestro servicio de venta telefónica al 600 600 12 30 y un ejecutivo te ayudará en tu compra.",
+        "nsr__leaveCommentText": "Dejar un comentario",
+        "pdp__deliveryOption": "Opciones de entrega",
+        "seo__defaultSeoDescription": "Comprar categoryName filterName en Sodimac, la Tienda con los mejores precios. Pagos Online con Tarjeta Débito, Crédito, CMR, Baloto, Efecty o Cajas en Tienda. ",
+        "nsr__frequentlyAskedQuestionsText": "Ir a preguntas frecuentes",
+        "generic__clickAndCollectAvailable": "Retiro en tienda",
+        "pdp__productGuaranteeDesc": "De acuerdo con el artículo 3° bis de la Ley N°19.496, podrás ejercer el derecho de retracto en relación con la compra del producto, en el plazo de 10 días desde su recepción. En caso de tratarse de un servicio, no resulta aplicable el derecho de retracto de su compra.",
+        "footer__social": "Seguinos en las Redes:",
+        "pdp__availabilityFetchError": "Unidades exceden las disponible para tu compra",
+        "pdp__showMoreWarrantyModalText1": "Cobertura del producto prolongando la garantía hasta por 3 años.",
+        "nsr__checkGrammerText": "Revisa la ortografía",
+        "pdp__buyAtStore": "Stock en tienda",
+        "pdp__productGuaranteeTitle": "Derecho de Retracto",
+        "header__locationInfoDescriptionText": "Estás viendo productos disponibles para comprar en esta comuna. Si no es donde te encuentras, aquí puedes cambiar tu ubicación.",
+        "pdp__youAreViewingThisProduct": "Estás viendo este producto",
+        "slp-plp__resultsOf": "Se muestran resultados de ",
+        "slp-plp__weHaveFound": "Hemos encontrado",
+        "pdp__takeAdvantageOfDiscount": "En tu primera compra te regalaremos $10.000",
+        "pdp__unitsAvailable": "unidades disponibles",
+        "pdp__seeLessCollection": "Ver menos",
+        "nsr__yourSearchText1": "Tu búsqueda de",
+        "mediaComp__calculationGuideText": "Guía para calcular m²",
+        "addToCart__addToCartSuccess": "Producto agregado al carro",
+        "pdp__bundleTotal": "Total por separado",
+        "addToCart__addToCartError": "Unidades exceden las disponible para tu compra",
+        "pdp__saveCMR": "Ahorra con CMR",
+        "pdp__noWarranty": "Sin Garantía.",
+        "nsr__categoryText": "Categorias mas buscadas",
+        "header__passwordText": "Contraseña",
+        "addToCart__addToCartTryAgain": "Intentar nuevamente",
+        "pdp__seeMoreAccessories": "Ver más complementos",
+        "pdp__completeYourCollection": "Completa tu colección",
+        "slp-plp__viewSearchText": "Estás viendo",
+        "pdp__seeLessAccessories": "Ver menos complementos",
+        "pdp__assemblyDifficultyLowMessage": "¡Atrévete! puede que no necesites ayuda para armarlo.",
+        "generic__homeDeliveryNotAvailable": "Sin despacho a domicilio",
+        "pdp__assemblyDifficultyHighPeopleText": "2+ personas",
+        "pdp__assemblyDifficultyMediumMessage": " Puede que necesites ayuda para armarlo.",
+        "pdp__bundleComponentTitle": "Comprando por separado",
+        "pdp__seeFullDescription": "Ver toda la descripción",
+        "generic__eventPriceMessage": "Precio evento a pagar con cualquier medio de pago",
+        "pdp__assemblyDifficultyHighMessage": " Te recomendamos contratar un ",
+        "slp-plp__searchResultsFor": "Resultados de búsqueda para",
+        "footer__copyRightText": "Todos los derechos reservados Sodimac S.A. 2021",
+        "pdp__assemblyDifficultyHighServiceMessage": "Servicio de Armado.",
+        "pdp__assemblyDifficultyTitle": "Dificultad de armado",
+        "pdp__selectBank": "Selecciona tu banco",
+        "generic__homeDeliveryAvailable": "Despacho a domicilio",
+        "footer__subscribeEmail": "Ej. correo@mail.com",
+        "pdp__seeStores": "ver tiendas",
+        "pdp__showMoreWarrantyModalText2": "100% del gasto en reparación y repuestos, sin límite.",
+        "header__trackYourPurchase": "Seguimiento de tu compra",
+        "slp-plp__productsAssociatedWith": "productos asociados a tu búsqueda de",
+        "addToCart__addRealtedProductsHeder": "Agrega a tu compra",
+        "zoneInfo__zoneModalLinkTitle": "El retiro y despacho varían según la comuna.",
+        "pdp__complementYourPurchase": "Complementa tu compra",
+        "zoneInfo__divgeoFieldOption2Text": "Selecciona tu región*",
+        "footer__findUs": "Descarga nuestra APP desde:",
+        "generic__sizeVariantsAreAvailable": "+ Tallas disponibles",
+        "nsr__limitSearchText": "Limita las palabras de búsqueda a una o dos máximo",
+        "pdp__upsellHeader": "Más opciones para elegir",
+        "generic__seeMore": "Ver más",
+        "footer__accountManagement": "Mi cuenta",
+        "pdp__dataSheet": "Ficha técnica",
+        "zoneInfo__regionText": "Región",
+        "header__mustEnterEmailText": "Debes ingresar un correo",
+        "footer__subscribeButton": "Suscribir",
+        "generic__smartBannerPrincipalText": "Vive nuestra asesoría digital a través de la búsqueda guiada",
+        "header__welcomeText": "¡Hola",
+        "addToCart__warrantyText": "¿Quieres extender la garantía del producto?",
+        "generic__viewMoreProducts": "Continúa comprando",
+        "generic__colorAndSizeVariantsAreAvailable": "+ Colores y Opciones disponibles",
+        "pdp__installationServices": "Servicios Hogar",
+        "pdp__showMoreWarrantyModalText3": "Servicio técnico a domicilio, retiramos tu producto gratis.",
+        "pdp__assemblyDifficultyMediumTimeText": "1+ horas aprox.",
+        "addToCart__addToCartBoomText2": "Despacho gratis para compras superiores a $ 29.990",
+        "slp-plp__notAvailableForWithdrawal": "No disponible para retiro",
+        "header__loginWithFacebookText": "Iniciar sesión con facebook",
+        "header__passwordPlaceholderText": " Ingresa tu contraseña",
+        "zoneInfo__modalLabelText": "Esta ubicación nos ayudará a brindarte una mejor experiencia de compra. Si no es la ubicación donde te encuentras, aquí puedes cambiarla.",
+        "pdp__assemblyManual": "Manual de armado",
+        "pdp__noWarrantySelected": "Extiende la garantía del fabricante con nuestro servicio de",
+        "pdp__otherOptions": "otras opciones",
+        "slp-plp__availableForWithdrawal": "Disponible para retiro",
+        "pdp__extendedWarrantyBadge": "Selecciona Garantía Extendida",
+        "pdp__only": "Solo",
+        "header__businessAccess": "Acceso empresas",
+        "mediaComp__calculatorPlaceholder": "Ej: 15",
+        "pdp__seeLessDescription": "Ver menos descripción",
+        "addToCart__orderQuantityExceeded": "Lo sentimos, no quedan suficientes productos en stock",
+        "pdp__assemblyDifficultyLowTimeText": "Menos de 1 hora aprox.",
+        "pdp__assemblyDifficultyMediumPeopleText": "1+ personas",
+        "header__boomHeaderToolTipButtonText": "Prueba Boom",
+        "pdp__otherComuna": "otras comunas",
+        "pdp__extendedWarranty": "Seleccionar Garantía Extendida",
+        "header__emailOrPasswordErrorText": "Tus datos son incorrectos para ingresar",
+        "header__loginHeaderText": "Mi Cuenta",
+        "pdp__selectYourSize": "Otras Opciones",
+        "header__invalidEmailText": "Dirección de email no válida.",
+        "zoneInfo__storeToolTipText": "Tu ubicación se ha actualizado correctamente, puedes cambiarla aquí cuando lo necesites",
+        "pdp__seeStoresWithStock": "Ver tiendas con stock",
+        "pdp__selectYourGuarantee": "Selecciona tu Garantía",
+        "footer__customerService": "Servicio al cliente",
+        "pdp__assemblyDifficultyLowPeopleText": "1 persona",
+        "pdp__moreInformation": "más información",
+        "nsr__useGeneralTermText": "Utiliza términos generales",
+        "header__mustEnterPasswordText": "Debes ingresar una contraseña",
+        "header__changeLocationText": "Cambiar",
+        "pdp__productDescription": "Descripción",
+        "generic__selectSizeVariant": "Debes seleccionar una opción para continuar.",
+        "addToCart__addToCartBoomText1": "Este producto tiene despacho Gratis con",
+        "pdp__seeDatesText": "ver fechas",
+        "header__serviceMenuText": "Servicios Hogar",
+        "pdp__productOnlyAvailableInStore": "Producto solo disponible en tienda.",
+        "header__forgotPassword": "¿Olvidaste tu contraseña?",
+        "addToCart__addRelatedSuccess": "Agregado",
+        "pdp__noStoreAvailable": "No hay disponibilidad en tu comuna",
+        "slp-plp__availableForDispatch": "Disponible para despacho",
+        "mediaComp__areaFormulaText": "Largo x Ancho = m²",
+        "mediaComp__filterWidgetlabel": "Filtrar y ordenar",
+        "mediaComp__unitInstructionText": "Ingresa los m² que necesitas cubrir",
+        "pdp__assemblyDifficultyHighTimeText": "2+ horas aprox.",
+        "addToCart__serviceText": "¿Quieres agregar un servicio?",
+        "footer__ourCompany": "Nuestra empresa",
+        "pdp__getYourCmr": "Obtén tu CMR 100% online",
+        "pdp__otherCity": "otras ciudades",
+        "zoneInfo__comunaText": "Comuna"
+      },
+      "isCategoryBreadcrumbsEnabled": true,
+      "isAssemblyDifficultyEnabled": true,
+      "isAndesRedirectionEnabled": true,
+      "isPaintM2CalculatorEnabled": true,
+      "boomAddToCartEnabled": false,
+      "isCfImagesEnabled": true,
+      "isTopAttributesEnabled": true,
+      "isBoomEnabled": false,
+      "crossSellingVersion": 2,
+      "priceOptions": {
+        "precision": 0,
+        "decimalSeparator": ""
+      },
+      "isDefaultMeasureUnitEnabled": true,
+      "isAutomaticRedirectionLandingPageEnabled": false,
+      "isCmrPuntosLinkEnabled": true,
+      "isPDPBrandLinkEnabled": true,
+      "snowPlowAppId": "8C4EAFE560E8762AF6D43434B72E028D",
+      "isPickupInStoreEnabled": true,
+      "isFreeShippingBadgeAllowed": true,
+      "isScene7ImagesFallbackEnabled": false,
+      "isFreeShippingInternationalEnabled": true,
+      "enableServiceInfoSidebar": true,
+      "paintM2CalculatorContentAttribute": "Contenido",
+      "isAutomaticRedirectionEnabled": false,
+      "isHomeDeliveryEnabled": true,
+      "hiddenFacets": [
+        "Opciones de entrega2"
+      ],
+      "isChatBotEnabled": false,
+      "paintM2CalculatorPerformanceAttribute": "Rendimiento por capa",
+      "isSnowPlowEnabled": true,
+      "isStockInStoreEnabled": true
+    },
+    "header": {
+      "headerData": {
+        "errors": [],
+        "state": {
+          "promotionalLinks": [],
+          "promotionalLinksConfig": {},
+          "sodimacGroup": [],
+          "sodimacGroupConfig": {},
+          "utilBarButtons": {
+            "login": {
+              "logOut": {
+                "actionLogin": {
+                  "title": "",
+                  "url": "",
+                  "isExternal": "false",
+                  "type": "",
+                  "extra": ""
+                },
+                "actionForgotPassLink": {
+                  "title": "",
+                  "url": "",
+                  "isExternal": "false",
+                  "type": "",
+                  "extra": ""
+                },
+                "actionRegisterLink": {
+                  "title": "",
+                  "url": "",
+                  "isExternal": "false",
+                  "type": "",
+                  "extra": ""
+                },
+                "actionTrackLink": {
+                  "title": "",
+                  "url": "",
+                  "isExternal": "false",
+                  "type": "",
+                  "extra": ""
+                },
+                "actionCompanyLoginLink": {
+                  "title": "",
+                  "url": "",
+                  "isExternal": "false",
+                  "type": "",
+                  "extra": ""
+                }
+              },
+              "logIn": {
+                "actionBoom": {
+                  "title": "",
+                  "url": "",
+                  "isExternal": "false",
+                  "type": "",
+                  "extra": ""
+                },
+                "actionMyAccount": {
+                  "title": "",
+                  "url": "",
+                  "isExternal": "false",
+                  "type": "",
+                  "extra": ""
+                },
+                "actionChangePassword": {
+                  "title": "",
+                  "url": "",
+                  "isExternal": "false",
+                  "type": "",
+                  "extra": ""
+                },
+                "actionOrderHistory": {
+                  "title": "",
+                  "url": "",
+                  "isExternal": "false",
+                  "type": "",
+                  "extra": ""
+                },
+                "actionLogOut": {
+                  "title": "",
+                  "url": "",
+                  "isExternal": "false",
+                  "type": "",
+                  "extra": ""
+                }
+              }
+            },
+            "boom": false,
+            "basket": {
+              "url": "",
+              "isExternal": "false"
+            }
+          },
+          "mobileStateUtils": [
+            {
+              "title": "Mobile Home",
+              "url": "",
+              "isExternal": "false",
+              "icon": ""
+            }
+          ],
+          "menuUtilButtons": [
+            {
+              "title": "Home",
+              "url": "",
+              "isExternal": "false",
+              "icon": ""
+            },
+            {
+              "title": "Mi Cuenta",
+              "url": "/myaccount/login",
+              "isExternal": "false"
+            }
+          ],
+          "locationV3": {
+            "textDictionary": {}
+          },
+          "cmrPuntos": {},
+          "miniCart": {},
+          "searchByImage": {
+            "text_dictionary": {
+              "error_text": {},
+              "modal_text_desktop": {},
+              "permission_denied_page_data": {},
+              "spinner_text": {},
+              "tooltip_text": {},
+              "coachmark_text": {}
+            }
+          }
+        },
+        "controlParameter": {
+          "enableHeaderProjectIdeas": false,
+          "enableHeaderServices": false,
+          "enableBoomService": false,
+          "enableCartBoomService": false,
+          "enableHeaderBannerService": false,
+          "enableContentBannerService": false,
+          "isMc2Enabled": false,
+          "isNewLocationModalEnabled": false,
+          "isNewNavigationMenuEnabled": false
+        }
+      },
+      "categoriesMenu": {
+        "errors": [],
+        "state": {
+          "rootCategories": []
+        }
+      },
+      "servicesData": {
+        "errors": [],
+        "state": {
+          "rootServices": []
+        }
+      },
+      "projectsData": {
+        "errors": [],
+        "state": {
+          "projectContentData": [
+            {
+              "name": "",
+              "url": "",
+              "image": "",
+              "title": ""
+            }
+          ],
+          "rootProjectIdeas": []
+        }
+      }
+    },
+    "footer": {
+      "state": {
+        "footerMobileView": [
+          {
+            "label": "services",
+            "links": [
+              {
+                "label": "",
+                "title": "",
+                "link": "",
+                "isExternal": "false",
+                "icon": "",
+                "primaryIconUrl": ""
+              },
+              {
+                "label": "",
+                "title": "",
+                "link": "",
+                "isExternal": "false",
+                "icon": "",
+                "primaryIconUrl": ""
+              },
+              {
+                "label": "",
+                "title": "",
+                "link": "",
+                "isExternal": "false",
+                "icon": "",
+                "primaryIconUrl": ""
+              },
+              {
+                "label": "",
+                "title": "",
+                "link": "",
+                "isExternal": "false",
+                "icon": "",
+                "primaryIconUrl": ""
+              }
+            ]
+          },
+          {
+            "label": "contactUs",
+            "links": [
+              {
+                "label": "",
+                "title": "",
+                "link": "",
+                "isExternal": "false",
+                "extra": ""
+              }
+            ]
+          }
+        ],
+        "footerWebView": [
+          {
+            "label": "",
+            "link": "",
+            "isExternal": "false",
+            "links": []
+          },
+          {
+            "label": "",
+            "link": "",
+            "isExternal": "false",
+            "links": []
+          },
+          {
+            "label": "",
+            "link": "",
+            "isExternal": "false",
+            "links": []
+          },
+          {
+            "label": "findUs",
+            "links": []
+          },
+          {
+            "label": "social",
+            "links": []
+          },
+          {
+            "label": "countrySelector",
+            "fieldOptions": []
+          },
+          {
+            "label": "finance",
+            "links": [
+              {
+                "label": "",
+                "title": "",
+                "link": "",
+                "isExternal": "false",
+                "icon": "",
+                "primaryIconUrl": ""
+              }
+            ]
+          },
+          {
+            "label": "tracking",
+            "links": [
+              {
+                "label": "",
+                "title": "",
+                "link": "",
+                "isExternal": "false",
+                "icon": "",
+                "primaryIconUrl": ""
+              }
+            ]
+          },
+          {
+            "label": "stores",
+            "links": [
+              {
+                "label": "",
+                "title": "",
+                "link": "",
+                "isExternal": "false",
+                "icon": "",
+                "primaryIconUrl": ""
+              }
+            ]
+          },
+          {
+            "label": "contactUs",
+            "links": [
+              {
+                "label": "",
+                "title": "",
+                "link": "",
+                "isExternal": "false",
+                "icon": "",
+                "primaryIconUrl": ""
+              }
+            ]
+          }
+        ],
+        "copyright": {}
+      }
+    },
+    "query": {
+      "Ntt": "Tornillo",
+      "tenant": "sodimac-cl"
+    },
+    "tracingHeaders": {
+      "x-request-id": "a50ce49c-71fe-9ec3-8b1c-ce890ccda6a2",
+      "x-b3-traceid": "ad85c6c3e17b945a41adaa9a177d0f83",
+      "x-b3-spanid": "e581b2a22f31c88c",
+      "x-b3-parentspanid": "41adaa9a177d0f83",
+      "x-b3-sampled": "1"
+    },
+    "pageName": "search",
+    "isPrime": false,
+    "deviceType": "desktop",
+    "isAbTesting": false,
+    "isModulo": false,
+    "isSearchBot": false,
+    "rating": {
+      "errors": [],
+      "state": {
+        "reviewTermsConditions": "<p><b><u>Políticas de publicación y uso para\\nevaluación de productos en Sodimac.com</u></b></p><p><span><br>\\n<b>Autorización al tratamiento de datos personales</b>&nbsp;</span></p><p>Nuestro\\ncompromiso es ofrecerte los productos y servicios que mejor se acomoden a tus\\nnecesidades. Por ello, en este acto, autorizas expresamente a Sodimac S.A.\\n(\"Sodimac\"), de conformidad al artículo 4° de la Ley N°19.628 sobre\\nProtección de la Vida Privada (\"Ley de Protección de Datos\"), a\\ntratar tus datos personales que nos proporcionas al comprar nuestros productos\\ny/o utilizar o contratar nuestros servicios, por cualquiera de nuestros canales\\nde comunicación o venta, tanto presenciales como remotos, para las finalidades\\nque se indican más abajo.</p><p>Se\\nentiende por \"dato personal\", tu nombre, RUT, domicilio, teléfono,\\ncorreo electrónico, datos de geolocalización, uso y visita del sitio web,\\nhistorial de navegación, hábitos de compra y otros datos biométricos como tu\\nhuella digital, rasgos faciales y voz.</p><p>Asimismo,\\nautorizas a Sodimac para comunicar, transmitir, y/o proporcionar a sus Empresas\\nRelacionadas tus datos de carácter personal. Para estos efectos, por\\n\"Empresas Relacionadas\" se entenderá cualquier empresa en la cual\\nS.A.C.I. Falabella sea titular del 49% o más de su capital, como por ejemplo:\\nFalabella Retail S.A., Hipermercados Tottus S.A., Promotora CMR Falabella S.A.,\\nSeguros Falabella S.A., Banco Falabella, Viajes Falabella Ltda., CF Seguros S.A.,\\nRentas Falabella S.A., Plaza S.A., Promotora Chilena de Café Colombia S.A.\\n(Juan Valdéz), Imperial S.A. y Bazaya Chile Limitada (Linio).</p><p>Tus\\ndatos personales podrán ser tratados por Sodimac y/o sus Empresas Relacionadas,\\npor sí o a través de sus proveedores, exclusivamente para (i) preparar,\\nimplementar, promocionar y ofrecerte nuevos productos y servicios, o bien,\\nnuevos atributos, modalidades o características a los productos y servicios que\\nya están a tu disposición; (ii) completar automáticamente los documentos\\nasociados a las transacciones que realices en función de los productos\\nadquiridos y/o servicios utilizados o contratados, o que en el futuro\\nadquieras, utilices o contrates, con Sodimac o sus Empresas Relacionadas; (iii)\\nacceder a, procesar y tratar tu información, a fin de ajustar la oferta de\\nproductos y servicios a tu perfil de cliente, o bien, efectuar análisis,\\nreportes y evaluaciones a su respecto; y (iv) desarrollar acciones comerciales\\no servicios de post venta, de carácter general o dirigidas personalmente a ti,\\ntendientes a mejorar tu experiencia como cliente.</p><p>Sodimac\\nserá responsable del cumplimiento efectivo de dichas obligaciones por sus\\nEmpresas Relacionadas, sin perjuicio de la responsabilidad que les quepa a\\néstas por cualquier incumplimiento de tales obligaciones. Del mismo modo, en\\ncaso de que el tratamiento de datos se haya de efectuar por empresas\\nproveedoras de servicios para Sodimac o sus Empresas Relacionadas, dichas\\nempresas proveedoras de servicios deberán asumir compromisos de\\nconfidencialidad y adoptar medidas que aseguren el debido cumplimiento de las\\nobligaciones de la Ley de Protección de Datos.</p><p><span>En\\ntodo momento podrás revocar tu autorización, y dispondrás siempre de los\\nderechos de aclaración, rectificación, cancelación y oposición, y todos los\\ndemás derechos que confiere la Ley N° 19.628 sobre Protección de la Vida\\nPrivada. Para ejercer estos derechos sólo deberás llamar al&nbsp;<a target=\"_blank\" rel=\"nofollow\">600 600 40 20</a>&nbsp;o\\nenviar un correo electrónico a&nbsp;<a target=\"_blank\" rel=\"nofollow\" href=\"mailto:contactosodimac@sodimac.cl\">contactosodimac@sodimac.cl</a>. Del mismo modo,\\nsiempre puedes solicitar la suspensión de comunicaciones promocionales o\\npublicitarias, de conformidad a lo dispuesto en el artículo 28 B de la Ley\\nN°19.496 sobre Protección de los Derechos de los Consumidores.</span></p><p><span><br>\\n<br>\\n<b>Uso de Cookies</b>&nbsp;</span></p><p>\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n</p><p><span>En\\nSodimac usamos cookies y tecnologías similares para personalizar y mejorar tu\\nexperiencia de cliente y para mostrarte publicidad online relevante.<br>\\nLas cookies son pequeños archivos de texto que contienen un identificador único\\nque se almacena en el computador o aparato móvil a través del cual accedes a\\nnuestro sitio web de manera que aquellos pueden ser reconocidos cada vez que\\nusas nuestro sitio web.<br>\\nPuedes elegir deshabilitar en cualquier momento algunas o todas las cookies que\\nutilizamos.</span></p><p><br></p><p><b>Aspectos\\nGenerales</b></p><p>En Sodimac.com nos interesan los comentarios\\ny opiniones de nuestros clientes y usuarios. Es por esto que ponemos a\\ndisposición esta plataforma de <b>“evaluación\\nde productos”</b> &nbsp;con el fin de ayudar a\\nnuestra comunidad de manera colaborativa a tomar una mejor decisión en su\\ncompra y también para que nosotros como empresa sigamos mejorando día a día en\\nnuestro mix de productos. Los comentarios realizados por nuestra comunidad\\npodrán ser positivos como negativos y con el foco en la evaluación de nuestros\\nproductos.</p><p>Para poder darle un mejor uso a la\\nplataforma, dejamos a disposición de nuestra comunidad las siguientes reglas de\\nuso: </p><p><br></p><p><b>Especificaciones\\ny Requisitos para evaluar/publicar productos en Sodimac.com</b></p><p>Todos nuestros clientes que hayan efectuado\\ncompras en sodimac.com o en nuestras tiendas podrán realizar comentarios y\\nevaluar en una escala del 1 al 5 (estrellas) la calidad del producto comprado. El\\nobjetivo de esta plataforma es generar un espacio donde los comentarios de\\nnuestros clientes ayuden a otros clientes a tener una mejor experiencia de\\ncompra en sus productos y facilitar la decisión de compra. A todos los clientes\\nque hayan realizado una compra en Sodimac.com o en nuestras tiendas se les\\nenviará un email invitándolos a evaluar y comentar su lista de productos\\ncomprados. Una vez realizada la evaluación y comentarios, éstos serán revisados\\npor nuestro equipo (en base a estas políticas expresadas en este documento) y\\npodrán ser publicados en un plazo de 72 horas si es que el comentario y\\nevaluación sigue con las políticas de publicación. </p><p><br></p><p><b>Esta\\ncomunidad la hacemos todos ¡Aplica estas buenas prácticas! </b></p><p><span>¡Sí, esta comunidad la hacemos todos! Aporta\\ninformación que sea útil y relevantes para los demás clientes y\\nusuarios. Todos los comentarios y evaluaciones que realices a los productos\\ncomprados en Sodimac.com, deben ser opiniones propias, sinceras y basadas en tu\\nexperiencia personal <b>¡Recuerda que con\\ntus evaluaciones y comentarios podrás orientar a otros usuarios como tú</b>!</span></p><p><br></p><p><b>¿No\\nsabes por dónde partir?</b></p>- Puedes comenzar evaluando en una escala de 1 al 5 estrellas\\nla calidad del producto que compraste en Sodimac.com o en nuestras tiendas<br><ul><li>1 estrella es que no cumple con tus expectativas</li><li>2 estrellas es que cumple parcialmente con tus\\nexpectativas</li><li>3 estrellas es que cumple con la mayoría de tus\\nexpectativas</li><li>4 estrellas es que cumple con todas tus expectativas</li><li>5 estrellas es que cumple de forma sobresaliente con tus\\nexpectativas</li></ul>- Además puedes agregar un comentario sobre la calidad, el\\ndiseño y la eficiencia de tu producto que compraste en Sodimac.com o en\\nnuestras tiendas.<br>- Respeta siempre los comentarios de los demás\\nparticipantes de esta comunidad.<br>- No se harán públicos los comentarios referentes al\\nservicio de post venta como por ejemplo: garantías, devoluciones, despachos,\\nprecios del despacho, mala atención de post venta.<br>- No publiques contenido obsceno, pornográfico, agresivo, que\\ncontenga groserías que inciten al odio o apelen a la intolerancia hacia otros\\nclientes basados en su raza, nacionalidad, identidad sexual, edad, discapacidad\\ny/o religión.<br>- También te solicitamos no publicar contenido que pueda\\nafectar la privacidad de otros…como por ejemplo: datos personales de otras\\npersonas como email, número de teléfono y dirección de donde vive.<br>- No publiques urls con contenido promocional de\\nproveedores, otras empresas y tampoco urls y contenidos promoviendo tus productos\\no servicios.<br>- No publiques contenido que apelen a ofrecer algún tipo de\\ncompensación, productos gratis, con descuentos en tu nombre o en el de otra\\npersona.<br>- No publiques contenido que promueva o incite lisa y\\nllanamente a actos ilegales, como fraude, uso de drogas ilegales, violencia,\\nconsumo de alcohol por parte de menores de edad, abuso de niños, abuso de\\nanimales.<br>- No publiques contenido que potencie servicios, productos\\no promociones de origen fraudulenta (estafas piramidales por ejemplo).<br>- No publiques contenido que incentive la realización de\\ndaños económicos, físicos y mentales a terceros.<br>- No publiques contenido que incentive alguna organización\\nterrorista.<br><br><p>Este documento contiene las reglas de uso de\\nla comunidad para evaluar y comentar productos comprados en Sodimac.com o en\\nnuestras tiendas, con el fin de que todos nuestros clientes y usuarios estén en\\nconocimiento de ellas y hagan un buen uso de esta plataforma. Todos los\\ncomentarios y evaluaciones que infrinjan lo declarado en este documento no\\nserán publicados y/o podrán ser despublicados.</p>\\n\\n<p>Además,\\ntodo aquel que haya comentado\\ny compartido imágenes en sus publicaciones se dispone a facilitar su&nbsp;difusión pública, al igual que&nbsp;los comentarios para utilizar el nombre de usuario (en forma gratuita, sin restricciones y para su difusión\\npublicitaria) sin que por ello deba efectuarse pago alguno, en dinero o en\\nespecies. </p>\\n\\n<p>Se faculta a Eric Cristi, abogado de Sodimac, para\\nprotocolizar las presentes bases en una Notaría.</p><p><br></p><p><br></p><br>",
+        "version": 1
+      }
+    },
+    "interlinking": {}
+  },
+  "page": "/search",
+  "query": {
+    "Ntt": "Tornillo",
+    "tenant": "sodimac-cl"
+  },
+  "buildId": "adc6f49629029462ba8732f12507ae86516f2cd7",
+  "assetPrefix": "/a/so/browse",
+  "runtimeConfig": {
+    "IS_SEARCH_CSR": "false",
+    "RUM_SAMPLE_RATE": 1,
+    "DATADOG_REPLAY_SAMPLE_RATE": 0,
+    "DATADOG_SITE": "datadoghq.com",
+    "SPONSORED_ENDPOINT": "https://www.falabella.com/s/vas-service",
+    "GCP_ASSETS": "https://storage.googleapis.com/sodimac-catalyst-bu-prod-assets",
+    "PORT": 3000,
+    "ENVIRONMENT": "production",
+    "DATADOG_APPLICATION_ID": "52df46c7-384e-4e9a-aa89-ab9e753a653e",
+    "CONFIG_API_URL_INTERNAL": "http://configuration.sodimac.svc.cluster.local:8080",
+    "DD_SERVICE": "sodimac-b2c-ui",
+    "PRODUCT_API_URL_INTERNAL": "http://sodimac-products-service-production.sodimac.svc.cluster.local:8080",
+    "DATADOG_RUM_ENABLED": false,
+    "DATADOG_APPLICATION_TOKEN": "pub9aea12610288a3e1d1a840be34915f50",
+    "GB_ENABLED": false,
+    "DATADOG_ENABLED": true,
+    "JOURNEY_WOOD_URL": "https://falabella-woods-journey-prod.firebaseapp.com",
+    "REACT_APP_GOOGLE_MAPS_API_KEY": "AIzaSyD_2W9WKGTxfnQy0CysQu21l2rev1KLEXw",
+    "IS_NEW_SPONSORED_SERVICE": true,
+    "CACHE_API_URL_INTERNAL": "http://cache-service.sodimac.svc.cluster.local:8080",
+    "INTERLINKING_API_URL_INTERNAL": "http://interlinking-service-sodimac-production.sodimac.svc.cluster.local",
+    "NOTIFICATIONS_API_URL_INTERNAL": "http://notifications.sodimac.svc.cluster.local:8080",
+    "SEARCH_API_URL_INTERNAL": "http://product-search.sodimac.svc.cluster.local:8080",
+    "NODE_ENV": "production"
+  },
+  "isFallback": false,
+  "customServer": true,
+  "gip": true,
+  "appGip": true,
+  "head": [
+    [
+      "meta",
+      {
+        "charSet": "utf-8"
+      }
+    ],
+    [
+      "title",
+      {
+        "children": "Bienvenido a Sodimac.com. Todo para construir y renovar tu hogar con los precios bajos siempre"
+      }
+    ],
+    [
+      "link",
+      {
+        "rel": "shortcut icon",
+        "href": "https://storage.googleapis.com/sodimac-catalyst-bu-prod-assets/default.ico"
+      }
+    ],
+    [
+      "link",
+      {
+        "as": "font",
+        "type": "font/ttf",
+        "href": "/a/so/browse/static/fonts/Lato-Regular.ttf",
+        "crossOrigin": "anonymous"
+      }
+    ],
+    [
+      "link",
+      {
+        "as": "font",
+        "type": "font/ttf",
+        "href": "/a/so/browse/static/fonts/Lato-Light.ttf",
+        "crossOrigin": "anonymous"
+      }
+    ],
+    [
+      "link",
+      {
+        "as": "font",
+        "type": "font/ttf",
+        "href": "/a/so/browse/static/fonts/Lato-Bold.ttf",
+        "crossOrigin": "anonymous"
+      }
+    ],
+    [
+      "meta",
+      {
+        "name": "viewport",
+        "content": "initial-scale=1.0, width=device-width"
+      }
+    ],
+    [
+      "meta",
+      {
+        "httpEquiv": "X-UA-Compatible",
+        "content": "IE=edge"
+      }
+    ],
+    [
+      "meta",
+      {
+        "name": "google-site-verification",
+        "content": "Jg7SF8ElcGKsnfV5o6Lot23alpMI7TfYXuBivQfTCK8"
+      }
+    ],
+    [
+      "meta",
+      {
+        "name": "robots",
+        "content": "noindex,nofollow"
+      }
+    ],
+    [
+      "link",
+      {
+        "rel": "dns-prefetch",
+        "href": "//cdn.dynamicyield.com"
+      }
+    ],
+    [
+      "link",
+      {
+        "rel": "dns-prefetch",
+        "href": "//st.dynamicyield.com"
+      }
+    ],
+    [
+      "link",
+      {
+        "rel": "dns-prefetch",
+        "href": "//rcom.dynamicyield.com"
+      }
+    ]
+  ]
+}
