@@ -632,14 +632,14 @@ class ScraperOrchestrator:
         """
         # Validar que los proveedores solicitados tienen scraper
         proveedores_validos = [p for p in proveedores if p in self._SCRAPERS]
-        if not proveedores_validos:
+        if not proveedores_validos: 
             logger.error("Ningún proveedor válido en la lista: %s", proveedores)
             return []
 
         async with async_playwright() as pw:
             # Un solo browser para todos los scrapers — más eficiente
             browser = await pw.chromium.launch(
-                headless=True,
+                headless=False,
                 args=[
                     "--no-sandbox",
                     "--disable-blink-features=AutomationControlled",

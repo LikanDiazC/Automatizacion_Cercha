@@ -10,6 +10,7 @@ import Inventario from './pages/Inventario';
 import Cortes from './pages/Cortes';
 import Ordenes from './pages/Ordenes';
 import Pendientes from './pages/Pendientes';
+import Cotizador from './pages/Cotizador';
 import { AdminContext } from './context/adminContext';
 
 const theme = createTheme({
@@ -43,6 +44,7 @@ const navItems = [
   { to: '/cortes', label: 'Cortes', caption: 'Optimización y planos' },
   { to: '/ordenes', label: 'Órdenes', caption: 'Trabajo y recursos' },
   { to: '/pendientes', label: 'Pendientes', caption: 'Prioridades y materiales' },
+  { to: '/cotizador', label: 'Cotizador', caption: 'Comparar proveedores'},
 ];
 
 const NavItem = ({ to, label, caption }) => {
@@ -100,6 +102,7 @@ function AppMain() {
           <Route path="/cortes" element={<Cortes />} />
           <Route path="/ordenes" element={<Ordenes />} />
           <Route path="/pendientes" element={<Pendientes />} />
+          <Route path="/cotizador" element={<Cotizador />} />
         </Routes>
       </Box>
     </Box>

@@ -1,4 +1,11 @@
 from contextlib import asynccontextmanager
+import sys
+import asyncio
+from contextlib import asynccontextmanager
+
+# --- FIX PARA PLAYWRIGHT EN WINDOWS ---
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -76,3 +83,19 @@ def health_check():
 @app.get("/health", tags=["Health"])
 def health():
     return {"status": "ok"}
+
+# ---------------------------------------------------------------------------
+# ARRANQUE DIRECTO (Bypass para el error de Playwright en Windows)
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
+    import uvicorn
+    import sys
+    import asyncio
+
+    # 1. Forzamos la política ANTES de que Uvicorn exista
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
+    # 2. Arrancamos Uvicorn pasando el objeto 'app' directamente y SIN reload
+    # (El reload crea subprocesos que rompen a Playwright en Windows)
+    uvicorn.run(app, host="127.0.0.1", port=8000)
