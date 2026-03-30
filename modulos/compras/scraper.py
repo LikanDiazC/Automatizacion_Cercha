@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 from urllib.parse import quote_plus
+from camoufox.async_api import AsyncCamoufox
 
 import httpx
 import subprocess
@@ -989,55 +990,34 @@ class EasyScraper:
 # ---------------------------------------------------------------------------
 
 class ScraperOrchestrator:
-    """
-    Lanza los scrapers en paralelo con asyncio.gather.
-    Si uno falla, devuelve los resultados del resto.
-    """
-
-    _SCRAPERS = {
-        NombreProveedor.SODIMAC: SodimacScraper,
-        NombreProveedor.EASY:    EasyScraper,
-    }
-
+    # ...
+    
     async def buscar(
         self,
-        query:          str,
-        proveedores:    list[NombreProveedor],
+        query: str,
+        proveedores: list[NombreProveedor],
         max_resultados: int = 10,
     ) -> list[ResultadoScraper]:
-
-        validos = [p for p in proveedores if p in self._SCRAPERS]
-        if not validos:
+        
+        proveedores_validos = [p for p in proveedores if p in self._SCRAPERS]
+        if not proveedores_validos:
             return []
 
-        tareas = [
-            self._SCRAPERS[p]().buscar(query, max_resultados)
-            for p in validos
-        ]
-
-        resultados_raw = await asyncio.gather(*tareas, return_exceptions=True)
-
-        resultados: list[ResultadoScraper] = []
-        for proveedor, resultado in zip(validos, resultados_raw):
-            if isinstance(resultado, Exception):
-                logger.error("Error no capturado en %s: %s", proveedor, resultado)
-                resultados.append(ResultadoScraper(
-                    proveedor=proveedor,
-                    estado   =EstadoScraping.ERROR,
-                    error_msg=str(resultado)[:500],
-                ))
-            else:
-                resultados.append(resultado)
-                logger.info(
-                    "[%s] estado=%s productos=%d método=%s duración=%.1fs",
-                    resultado.proveedor,
-                    resultado.estado,
-                    len(resultado.productos),
-                    resultado.metodo,
-                    resultado.duracion_seg,
-                )
-
-        return resultados
+        # 🦊 USAMOS CAMOUFOX EN LUGAR DE CHROMIUM ESTÁNDAR
+        async with AsyncCamoufox(
+            headless=True,     # Ponlo en False si quieres ver cómo navega
+            humanize=True,     # Simula movimientos de mouse y tecleo de humanos
+            block_images=True  # Hace el scraping más rápido
+        ) as browser:
+            try:
+                tareas = [
+                    self._SCRAPERS[proveedor]().buscar(query, max_resultados, browser)
+                    for proveedor in proveedores_validos
+                ]
+                resultados_raw = await asyncio.gather(*tareas, return_exceptions=True)
+            except Exception as e:
+                logger.error("Error crítico en orquestador Camoufox: %s", e)
+                resultados_raw = []
 
 
 # ---------------------------------------------------------------------------
