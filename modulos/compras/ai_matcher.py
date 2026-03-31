@@ -342,8 +342,11 @@ PRODUCTO B ({producto_b.proveedor}):
         "temperature": 0.1,
     }
 
-    logger.info("Esperando 4 segundos para respetar límite de API gratuita...")
-    await asyncio.sleep(4)
+    # Delay adaptativo: respetar el rate limit de la API (Free Tier: ~15 rpm)
+    # En producción con API de pago se puede reducir este valor.
+    _LLM_RATE_LIMIT_DELAY = 2.0
+    logger.info("Esperando %.1fs para respetar límite de API...", _LLM_RATE_LIMIT_DELAY)
+    await asyncio.sleep(_LLM_RATE_LIMIT_DELAY)
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.post(
@@ -352,29 +355,85 @@ PRODUCTO B ({producto_b.proveedor}):
             json=payload,
         )
 
+    if resp.status_code == 429:
+        # Rate limit: esperar más y reintentar una vez
+        logger.warning("Rate limit de LLM alcanzado (429) — reintentando en 10s...")
+        await asyncio.sleep(10)
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                "https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions",
+                headers=_get_openai_headers(),
+                json=payload,
+            )
+
     if resp.status_code != 200:
         raise RuntimeError(f"Error de LLM [{resp.status_code}]: {resp.text[:300]}")
 
     data = resp.json()
-    tokens = data["usage"]["total_tokens"]
+    tokens = data.get("usage", {}).get("total_tokens", 0)
     contenido_llm = data["choices"][0]["message"]["content"]
 
+    resultado = _parsear_respuesta_llm(contenido_llm)
+    resultado["tokens_usados"] = tokens
+    return resultado
+
+
+def _parsear_respuesta_llm(contenido: str) -> dict:
+    """
+    Parsea la respuesta JSON del LLM con tres capas de fallback:
+    1. json.loads directo (caso ideal)
+    2. Extracción de JSON con regex si el modelo añadió texto extra
+    3. Valores seguros por defecto si todo falla
+
+    Esto evita que una respuesta malformada produzca un crash silencioso
+    donde confidence_score queda en 0.0 sin que nadie lo note.
+    """
+    defaults = {
+        "es_mismo_producto": False,
+        "confidence_score": 0.0,
+        "razon": "Respuesta no procesada",
+        "diferencias_criticas": [],
+    }
+
+    if not contenido or not contenido.strip():
+        return defaults
+
+    # Capa 1: parse directo
     try:
-        resultado = json.loads(contenido_llm)
-        resultado["tokens_usados"] = tokens
-        resultado.setdefault("es_mismo_producto", False)
-        resultado.setdefault("confidence_score", 0.0)
-        resultado.setdefault("razon", "Sin razón")
-        resultado.setdefault("diferencias_criticas", [])
-        return resultado
+        resultado = json.loads(contenido)
+        return _sanitizar_resultado_llm(resultado, defaults)
     except json.JSONDecodeError:
-        return {
-            "es_mismo_producto": False,
-            "confidence_score": 0.0,
-            "razon": "Error al parsear respuesta del LLM",
-            "diferencias_criticas": [],
-            "tokens_usados": tokens,
-        }
+        pass
+
+    # Capa 2: extraer el primer objeto JSON del texto (el modelo a veces añade prosa)
+    match = re.search(r"\{[^{}]*\}", contenido, re.DOTALL)
+    if match:
+        try:
+            resultado = json.loads(match.group())
+            logger.debug("JSON extraído con regex del contenido LLM")
+            return _sanitizar_resultado_llm(resultado, defaults)
+        except json.JSONDecodeError:
+            pass
+
+    logger.error("No se pudo parsear la respuesta del LLM: %r", contenido[:200])
+    return defaults
+
+
+def _sanitizar_resultado_llm(resultado: dict, defaults: dict) -> dict:
+    """Garantiza tipos y rangos correctos en la respuesta parseada del LLM."""
+    out = dict(defaults)
+    out.update(resultado)
+    # Forzar tipo bool
+    out["es_mismo_producto"] = bool(out.get("es_mismo_producto", False))
+    # Clampear confidence_score al rango [0, 1]
+    try:
+        score = float(out.get("confidence_score", 0.0))
+        out["confidence_score"] = max(0.0, min(1.0, score))
+    except (TypeError, ValueError):
+        out["confidence_score"] = 0.0
+    # Garantizar string en razon
+    out["razon"] = str(out.get("razon", ""))[:300]
+    return out
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Header, Request, Query
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import update
 from typing import List
 
 from core.database import get_db
@@ -75,14 +76,26 @@ def actualizar_stock(
     x_admin_token: str | None = Header(default=None, alias="X-Admin-Token"),
 ):
     _verificar_admin(x_admin_user, x_admin_token)
+
+    # Verificar existencia antes de operar
     articulo = db.query(models.Articulo).filter(models.Articulo.id == articulo_id).first()
     if not articulo:
         raise HTTPException(status_code=404, detail="Artículo no encontrado.")
-    nuevo_stock = articulo.stock_actual + delta
-    if nuevo_stock < 0:
+
+    # Validar que el delta no deje el stock negativo
+    if articulo.stock_actual + delta < 0:
         raise HTTPException(status_code=400, detail="El stock no puede quedar negativo.")
-    articulo.stock_actual = nuevo_stock
+
+    # UPDATE atómico: una sola instrucción SQL sin race condition.
+    # Funciona correctamente en SQLite y PostgreSQL.
+    db.execute(
+        update(models.Articulo)
+        .where(models.Articulo.id == articulo_id)
+        .values(stock_actual=models.Articulo.stock_actual + delta)
+    )
     db.commit()
+
+    # Refrescar para devolver el valor actualizado
     db.refresh(articulo)
     return {"id": articulo_id, "stock_actual": articulo.stock_actual}
 

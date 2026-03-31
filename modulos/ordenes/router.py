@@ -320,6 +320,14 @@ def actualizar_prioridad(orden_id: int, data: schemas.OrdenPrioridadUpdate, db: 
 
 @router.get("/{orden_id}/cortes")
 def obtener_cortes_orden(orden_id: int, db: Session = Depends(get_db)):
+    """
+    Recalcula y devuelve el plan de corte para visualización.
+
+    IMPORTANTE: Este endpoint es de SOLO LECTURA — no escribe retazos en inventario.
+    Los retazos ya fueron guardados al crear la orden (POST /).
+    Recalcular aquí es necesario porque el resultado del optimizador no se persiste
+    completo en BD (solo los conteos), pero el algoritmo es determinístico.
+    """
     orden = db.query(models.OrdenTrabajo).filter(models.OrdenTrabajo.id == orden_id).first()
     if not orden:
         raise HTTPException(status_code=404, detail="Orden no encontrada.")
@@ -337,13 +345,9 @@ def obtener_cortes_orden(orden_id: int, db: Session = Depends(get_db)):
         orden.ancho_plancha,
         orden.grosor_sierra
     )
+    # Asignamos SKUs solo para que el frontend pueda identificar los retazos visualmente
+    # NO se guardan en inventario aquí — eso ocurrió en crear_orden
     asignar_skus_retazos(resultado_cortes["cortes"], orden.id)
-
-    for plancha in resultado_cortes["cortes"]:
-        for retazo in plancha["retazos_utiles"]:
-            registrar_retazo_en_inventario(db, retazo.get("sku"), retazo)
-
-    db.commit()
 
     return {
         "orden_id": orden.id,

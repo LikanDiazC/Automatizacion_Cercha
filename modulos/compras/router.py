@@ -8,8 +8,9 @@ import asyncio
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Request, status, BackgroundTasks
 from sqlalchemy.orm import Session
+from core.rate_limit import limiter
 
 from core.database import get_db, SessionLocal
 from .models import (
@@ -118,20 +119,22 @@ def _obtener_carrito_o_404(session_key: str, db: Session) -> CarritoCompras:
     response_model=list[ResultadoBusqueda],
     summary="Buscar y comparar productos entre proveedores",
 )
+@limiter.limit("5/minute")  # Máx 5 búsquedas/minuto por IP — el scraping es costoso
 async def buscar_productos(
-    request:    BusquedaProductoRequest,
+    request:    Request,                            # FastAPI Request — requerido por slowapi
+    body:       BusquedaProductoRequest,            # Cuerpo JSON de la petición
     background: BackgroundTasks,
     db:         Session = Depends(get_db),
 ) -> list[ResultadoBusqueda]:
-    
-    logger.info("Búsqueda iniciada: query='%s' proveedores=%s", request.query, request.proveedores)
 
-    # --- Paso 1: Scraping con curl_cffi ---
+    logger.info("Búsqueda iniciada: query='%s' proveedores=%s", body.query, body.proveedores)
+
+    # --- Paso 1: Scraping en vivo ---
     try:
         resultados_scraper: list[ResultadoScraper] = await ejecutar_busqueda(
-            query=request.query,
-            proveedores=request.proveedores,
-            max_resultados=request.max_resultados,
+            query=body.query,
+            proveedores=body.proveedores,
+            max_resultados=body.max_resultados,
         )
     except Exception as exc:
         logger.error("Error crítico en scraping: %s", exc, exc_info=True)
@@ -142,7 +145,7 @@ async def buscar_productos(
 
     total_productos = sum(len(r.productos) for r in resultados_scraper)
     if total_productos == 0:
-        logger.warning("Ningún scraper devolvió productos para query='%s'", request.query)
+        logger.warning("Ningún scraper devolvió productos para query='%s'", body.query)
         return []
 
     # --- Paso 2: Persistir en BD ---
@@ -154,7 +157,7 @@ async def buscar_productos(
     # --- Paso 3: Canonical y embeddings ---
     try:
         canonical = await obtener_o_crear_canonical(
-            nombre_query=request.query,
+            nombre_query=body.query,
             productos_encontrados=productos_db,
             db=db,
         )
@@ -162,16 +165,20 @@ async def buscar_productos(
         logger.error("Error creando canonical: %s", exc)
         canonical = None
 
-    # Fix: Sesión independiente para evitar Database Lock
+    # Sesión independiente para embeddings en background — evita Database Lock con SQLite
     async def _generar_embeddings_background(productos_ids: list[int]) -> None:
-        db_bg = SessionLocal() 
+        db_bg = SessionLocal()
         try:
-            productos_bg = db_bg.query(ProductoProveedor).filter(ProductoProveedor.id.in_(productos_ids)).all()
+            productos_bg = (
+                db_bg.query(ProductoProveedor)
+                .filter(ProductoProveedor.id.in_(productos_ids))
+                .all()
+            )
             for p in productos_bg:
                 try:
                     await generar_y_guardar_embedding(p, db_bg)
                 except Exception as e:
-                    logger.warning("Embedding fallido: %s", e)
+                    logger.warning("Embedding fallido para producto id=%s: %s", p.id, e)
         finally:
             db_bg.close()
 
@@ -180,13 +187,13 @@ async def buscar_productos(
 
     # --- Paso 4: Agrupar por canonical y hacer matching ---
     resultados: list[ResultadoBusqueda] = await _construir_resultados_busqueda(
-        query=request.query,
+        query=body.query,
         productos=productos_db,
         canonical=canonical,
         db=db,
     )
 
-    logger.info("Búsqueda completada: query='%s' → %d resultados", request.query, len(resultados))
+    logger.info("Búsqueda completada: query='%s' → %d resultados", body.query, len(resultados))
     return resultados
 
 

@@ -157,14 +157,29 @@ class BusquedaProductoRequest(_BaseSchema):
     @classmethod
     def sanitizar_query(cls, v: str) -> str:
         """
-        Elimina caracteres que no tienen sentido en una búsqueda de materiales.
-        No es un reemplazo de prepared statements — es defensa en profundidad.
+        Sanitización de defensa en profundidad para la query de búsqueda.
+
+        Rechaza caracteres que:
+        - Podrían usarse en inyección SQL si la query llega a un LIKE sin ORM (SQLi)
+        - Son vectores de XSS si la query se refleja en HTML (XSS)
+        - Son inusuales en búsquedas legítimas de materiales de construcción
+
+        Nota: SQLAlchemy parametriza todas las queries, por lo que el riesgo de
+        SQLi ya está mitigado a nivel ORM. Esta validación es una capa adicional.
         """
         import re
         v = v.strip()
-        # Permitir: letras, números, espacios, /, ", -, .
-        if re.search(r"[<>{}|\\^`]", v):
-            raise ValueError("La búsqueda contiene caracteres no permitidos")
+        # Bloquear caracteres de inyección: SQL (', ", ;, --), XSS (<, >),
+        # y shell/path injection ({, }, |, ^, `, \)
+        if re.search(r"""[<>{}|\\^`'";]""", v):
+            raise ValueError(
+                "La búsqueda contiene caracteres no permitidos. "
+                "Usa letras, números, espacios, guiones y barras."
+            )
+        # Bloquear secuencias de comentario SQL (-- y /*) aunque los chars individuales
+        # ya fueron rechazados arriba, esta línea bloquea variantes codificadas
+        if "--" in v or "/*" in v or "*/" in v:
+            raise ValueError("La búsqueda contiene secuencias no permitidas.")
         return v
 
 

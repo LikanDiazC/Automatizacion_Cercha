@@ -11,3 +11,4 @@ beautifulsoup4
 lxml
 camoufox[geoip]
 curl_cffi
+slowapi>=0.1.9
