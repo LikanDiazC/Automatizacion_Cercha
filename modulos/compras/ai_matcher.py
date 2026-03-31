@@ -39,7 +39,11 @@ UMBRAL_RECHAZO_DIRECTO: float = 0.60
 UMBRAL_LLM_MATCH: float = 0.75
 EMBEDDING_MODEL = "gemini-embedding-001"
 LLM_MODEL = "gemini-2.5-flash"
-LLM_MAX_TOKENS_RESPUESTA = 400
+# gemini-2.5-flash es un modelo con "thinking" interno.
+# Los thinking tokens consumen el presupuesto de max_tokens ANTES del output visible.
+# Con 400 tokens el modelo se queda sin espacio para escribir el JSON → respuesta truncada.
+# 2048 es suficiente para el JSON de respuesta + overhead de thinking.
+LLM_MAX_TOKENS_RESPUESTA = 2048
 EMBEDDING_DIM = 3072
 
 
@@ -340,6 +344,10 @@ PRODUCTO B ({producto_b.proveedor}):
         ],
         "response_format": {"type": "json_object"},
         "temperature": 0.1,
+        # Deshabilitar thinking para esta tarea de clasificación binaria.
+        # El thinking consume tokens antes del output visible — innecesario aquí
+        # y causa el truncamiento del JSON cuando max_tokens era bajo.
+        "thinking": {"type": "disabled"},
     }
 
     # Delay adaptativo: respetar el rate limit de la API (Free Tier: ~15 rpm)
