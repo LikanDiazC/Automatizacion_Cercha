@@ -202,64 +202,54 @@ async def _construir_resultados_busqueda(
         por_proveedor.setdefault(p.proveedor, []).append(p)
 
     proveedores_con_datos = list(por_proveedor.keys())
-    resultados = []
+    
+    # 1. Tomamos el mejor representante de cada proveedor
+    variantes_finales = []
+    for prov in proveedores_con_datos:
+        if por_proveedor[prov]:
+            variantes_finales.append(por_proveedor[prov][0])
 
-    representantes: list[ProductoProveedor] = [
-        por_proveedor[prov][0]
-        for prov in proveedores_con_datos
-        if por_proveedor[prov]
-    ]
-
+    # 2. IA compara los dos finalistas
     match_result: Optional[MatchResult] = None
-    if len(representantes) >= 2:
+    if len(variantes_finales) >= 2:
         try:
-            match_result = await comparar_productos(representantes[0], representantes[1], db)
+            match_result = await comparar_productos(variantes_finales[0], variantes_finales[1], db)
         except Exception as exc:
             logger.error("Error en matching IA: %s", exc)
 
-    for proveedor in proveedores_con_datos:
-        variantes_proveedor = por_proveedor[proveedor]
+    # 3. Calculamos la diferencia de precio
+    mejor_precio = None
+    proveedor_optimo = None
+    diferencia = None
 
-        mejor_precio_prov = min(
-            (p.precio_oferta or p.precio_clp)
-            for p in variantes_proveedor
-            if p.precio_clp is not None
-        )
+    if variantes_finales:
+        mejor_variante = min(variantes_finales, key=lambda p: p.precio_oferta or p.precio_clp)
+        mejor_precio = mejor_variante.precio_oferta or mejor_variante.precio_clp
+        proveedor_optimo = mejor_variante.proveedor
+        
+        if len(variantes_finales) == 2:
+            p1 = variantes_finales[0].precio_oferta or variantes_finales[0].precio_clp
+            p2 = variantes_finales[1].precio_oferta or variantes_finales[1].precio_clp
+            diferencia = abs(p1 - p2)
 
-        otro_proveedor = [pv for pv in proveedores_con_datos if pv != proveedor]
-        precio_otro = None
-        if otro_proveedor:
-            otros = por_proveedor[otro_proveedor[0]]
-            if otros:
-                precio_otro = min(
-                    (p.precio_oferta or p.precio_clp)
-                    for p in otros
-                    if p.precio_clp is not None
-                )
+    canonical_resp = _canonical_a_response(canonical) if canonical else ProductoCanonicalResponse(
+        id=0,
+        nombre_normalizado=query,
+        descripcion=None,
+        unidad_base=None,
+        categoria=None,
+        created_at=datetime.utcnow(),
+    )
 
-        diferencia = None
-        if precio_otro is not None and mejor_precio_prov is not None:
-            diferencia = abs(mejor_precio_prov - precio_otro)
-
-        canonical_resp = _canonical_a_response(canonical) if canonical else None
-
-        resultados.append(ResultadoBusqueda(
-            canonical        =canonical_resp or ProductoCanonicalResponse(
-                id=0,
-                nombre_normalizado=query,
-                descripcion=None,
-                unidad_base=None,
-                categoria=None,
-                created_at=datetime.utcnow(),
-            ),
-            variantes        =[_producto_a_response(p) for p in variantes_proveedor],
-            mejor_precio     =mejor_precio_prov,
-            proveedor_optimo =proveedor,
-            diferencia_precio=diferencia,
-            confidence_score =match_result.confidence_score if match_result else None,
-        ))
-
-    return resultados
+    # 4. Retornamos UN SOLO resultado consolidado
+    return [ResultadoBusqueda(
+        canonical=canonical_resp,
+        variantes=[_producto_a_response(p) for p in variantes_finales],
+        mejor_precio=mejor_precio,
+        proveedor_optimo=proveedor_optimo,
+        diferencia_precio=diferencia,
+        confidence_score=match_result.confidence_score if match_result else None,
+    )]
 
 
 # ---------------------------------------------------------------------------

@@ -133,7 +133,7 @@ function EstadoCargando({ query }) {
 /** Tarjeta de un producto con comparación de precios. */
 function TarjetaProducto({ resultado, onAgregar, cargandoCarrito }) {
   const { canonical, variantes, confidence_score } = resultado;
-  const nombre = canonical?.nombre_normalizado || variantes?.[0]?.nombre_raw || 'Producto';
+  const nombre = variantes?.[0]?.nombre_raw || canonical?.nombre_normalizado || 'Producto';
   const imagen = imagenProducto(variantes);
 
   const precioSodimac = precioDeProveedor(variantes, 'Sodimac');
