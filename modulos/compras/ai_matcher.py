@@ -344,10 +344,9 @@ PRODUCTO B ({producto_b.proveedor}):
         ],
         "response_format": {"type": "json_object"},
         "temperature": 0.1,
-        # Deshabilitar thinking para esta tarea de clasificación binaria.
-        # El thinking consume tokens antes del output visible — innecesario aquí
-        # y causa el truncamiento del JSON cuando max_tokens era bajo.
-        "thinking": {"type": "disabled"},
+        # Nota: el parámetro "thinking" NO es compatible con el endpoint
+        # OpenAI-compatible de Gemini (/v1beta/openai/v1/...).
+        # El truncamiento estaba causado por max_tokens bajo (400), ya corregido arriba.
     }
 
     # Delay adaptativo: respetar el rate limit de la API (Free Tier: ~15 rpm)
