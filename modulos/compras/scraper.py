@@ -2,10 +2,8 @@
 Motor de Web Scraping Asíncrono — Sodimac y Easy Chile.
 
 Sodimac : Aspiradora Cuántica — parsea __NEXT_DATA__ (Next.js JSON)
-Easy    : Triple fallback VTEX IO
-           Fase 1 → Network Interception (GraphQL batched / XHR)
-           Fase 2 → window.__STATE__ (Apollo Client cache)
-           Fase 3 → DOM Scraping con scroll forzado + JS agresivo
+Easy    : Next.js __NEXT_DATA__ → pageProps.serverProductsResponse.productList
+          (Easy migró de VTEX IO a Next.js en 2025/2026)
 
 IMPORTANTE: este archivo no importa nada de sí mismo.
 Todos los helpers (_limpiar_precio, etc.) están definidos aquí.
@@ -25,6 +23,7 @@ from playwright.async_api import Page, Response, async_playwright
 
 from .models import EstadoScraping, NombreProveedor
 from .schemas import ProductoProveedorCreate
+from .scraper_debug import dump_scraper_data
 
 logger = logging.getLogger(__name__)
 
@@ -34,35 +33,6 @@ logger = logging.getLogger(__name__)
 
 TIMEOUT_BROWSER_MS = 35_000
 _EASY_BASE = "https://www.easy.cl"
-_EASY_SEARCH = f"{_EASY_BASE}/search?q={{query}}&O=OrderByScoreDESC"
-
-# Señales en URLs que indican respuesta con datos de producto
-_URL_PRODUCT_SIGNALS = [
-    "graphql",
-    "search-graphql",
-    "product",
-    "search?q=",
-    "search?Q=",
-    "_v/api",
-    "catalog_system",
-]
-
-# Selectores DOM VTEX IO, de más a menos específico
-_VTEX_SELECTORS = [
-    "[class*='vtex-product-summary-2-x-container']",
-    "[class*='productSummary']",
-    "[class*='galleryItem'] section",
-    "[data-product-id]",
-    "section[class*='product']",
-    "article[class*='product']",
-    ".shelf-item",
-]
-
-# Campos de precio VTEX según versión de la plataforma
-_PRICE_KEYS = [
-    "Price", "price", "sellingPrice", "SellingPrice",
-    "bestPrice", "offerPrice", "priceWithoutFormatting",
-]
 
 
 # ---------------------------------------------------------------------------
@@ -130,19 +100,62 @@ def _encontrar_precio(obj: Any, max_depth: int = 5) -> Optional[float]:
     return None
 
 
+
+# Patrones que confirman que una URL es de imagen (no una página de producto)
+_IMAGE_CDN_PATTERNS = (
+    "scene7.com/is/image",
+    "/is/image/",
+    "media.falabella.com",
+    "cloudinary.com",
+    "easy.cl/arquivos",
+    "arquivos/",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp",
+    ".gif",
+)
+
+# Claves de dict que con certeza apuntan a imágenes
+_IMAGE_DEDICATED_KEYS = (
+    "imageUrl", "mediumUrl", "thumbUrl", "smallUrl", "largeUrl",
+    "lowResolution", "highResolution", "defaultImage", "primaryImage",
+    "thumbnailUrl", "mainImageUrl",
+)
+
+
+def _es_url_imagen(val: str) -> bool:
+    """True si la URL parece un recurso de imagen (no una página web)."""
+    if not isinstance(val, str) or not val.strip():
+        return False
+    return any(p in val for p in _IMAGE_CDN_PATTERNS)
+
+
 def _encontrar_imagen(obj: Any, max_depth: int = 5) -> Optional[str]:
     if max_depth <= 0:
         return None
     if isinstance(obj, dict):
-        for k in ["imageUrl", "image", "url", "src", "defaultImage"]:
+        # 0) Sodimac: "mediaUrls" → lista de strings con CDN Falabella
+        media_urls = obj.get("mediaUrls")
+        if isinstance(media_urls, list) and media_urls:
+            for mu in media_urls:
+                if isinstance(mu, str) and mu.startswith("http"):
+                    return mu
+        # 1) Claves específicamente de imagen → aceptar cualquier URL http
+        for k in _IMAGE_DEDICATED_KEYS:
             val = obj.get(k)
-            if isinstance(val, str) and (
-                val.startswith("http")
-                or ".jpg" in val
-                or ".png" in val
-                or ".webp" in val
-            ):
+            if isinstance(val, str) and val.startswith("http") and val.strip():
                 return val
+        # 2) Clave "src" → aceptar si parece imagen
+        val = obj.get("src")
+        if isinstance(val, str) and _es_url_imagen(val):
+            return val
+        # 3) Claves genéricas "image" / "url" → exigir patrón de CDN de imagen
+        for k in ("image", "url"):
+            val = obj.get(k)
+            if isinstance(val, str) and _es_url_imagen(val):
+                return val
+        # 4) Recursión
         for v in obj.values():
             res = _encontrar_imagen(v, max_depth - 1)
             if res:
@@ -205,6 +218,13 @@ class SodimacScraper:
             )
 
             if not match:
+                dump_scraper_data(
+                    query=query, proveedor="Sodimac", metodo="next_data",
+                    items_crudos=[], productos_finales=[],
+                    duracion_seg=round(asyncio.get_event_loop().time() - inicio, 2),
+                    error_msg="__NEXT_DATA__ no encontrado en HTML",
+                    extra={"html_length": len(html), "url": url},
+                )
                 return ResultadoScraper(
                     self.proveedor, EstadoScraping.ERROR,
                     error_msg="__NEXT_DATA__ no encontrado",
@@ -233,7 +253,7 @@ class SodimacScraper:
                 url_str = item.get("url", "")
                 if not url_str.startswith("http"):
                     url_str = "https://www.sodimac.cl" + url_str
-                img = _encontrar_imagen(item) or f"https://sodimac.scene7.com/is/image/SodimacCL/{sku}"
+                img = _encontrar_imagen(item) or f"https://media.falabella.com/sodimacCL/{sku}/public"
 
                 productos.append(
                     ProductoProveedorCreate(
@@ -250,6 +270,11 @@ class SodimacScraper:
                 vistos.add(sku)
 
             print(f"✅ [Sodimac] ¡ÉXITO! {len(productos)} productos extraídos.")
+            dump_scraper_data(
+                query=query, proveedor="Sodimac", metodo="next_data",
+                items_crudos=productos_crudos, productos_finales=productos,
+                duracion_seg=round(asyncio.get_event_loop().time() - inicio, 2),
+            )
             return ResultadoScraper(
                 self.proveedor,
                 EstadoScraping.EXITO,
@@ -271,40 +296,35 @@ class SodimacScraper:
 
 # ---------------------------------------------------------------------------
 # ════════════════════════════════════════════════════════════════════════════
-#  SCRAPER EASY  —  Triple fallback VTEX IO
+#  SCRAPER EASY  —  Next.js __NEXT_DATA__ (migrado desde VTEX IO en 2025)
 # ════════════════════════════════════════════════════════════════════════════
 # ---------------------------------------------------------------------------
 
 class EasyScraper:
     """
-    Scraper robusto para Easy.cl (VTEX IO / Cencosud).
+    Scraper para Easy.cl — Next.js con __NEXT_DATA__.
 
-    Estrategia en cascada:
-      Fase 1 → Network Interception  (GraphQL batched / XHR)
-      Fase 2 → window.__STATE__      (Apollo Client cache)
-      Fase 3 → DOM Scraping          (scroll forzado + JS agresivo)
+    Easy migró de VTEX IO a Next.js. Los productos de búsqueda se encuentran en:
+      __NEXT_DATA__.props.pageProps.serverProductsResponse.productList
+
+    Cada producto tiene: productName, sku, prices.normalPrice, imageUrl, linkText, brand.
+
+    Estrategia:
+      Fase 1 → __NEXT_DATA__ del HTML (parsear JSON del script tag)
+      Fase 2 → _next/data/{buildId}/search/{query}.json (API directa)
     """
 
     proveedor = NombreProveedor.EASY
 
-    def __init__(self):
-        # Acumulador de payloads de red capturados por el interceptor
-        self._payloads_red: list[dict[str, Any]] = []
-
-    # ------------------------------------------------------------------
-    # Punto de entrada (misma firma que SodimacScraper)
-    # ------------------------------------------------------------------
     async def buscar(self, query: str, max_resultados: int, browser) -> ResultadoScraper:
         inicio = asyncio.get_event_loop().time()
-        print(f"\n🔵 [Easy] ═══════════════════════════════════════")
-        print(f"🔵 [Easy] Iniciando búsqueda de: '{query}'")
-        print(f"🔵 [Easy] ═══════════════════════════════════════")
+        print(f"\n[Easy] ===================================================")
+        print(f"[Easy] Iniciando busqueda de: '{query}'")
+        print(f"[Easy] ===================================================")
 
-        self._payloads_red.clear()
         context = None
 
         try:
-            # ── Context con stealth ────────────────────────────────────
             context = await browser.new_context(
                 viewport={"width": 1366, "height": 768},
                 user_agent=(
@@ -315,16 +335,12 @@ class EasyScraper:
                 locale="es-CL",
                 extra_http_headers={
                     "Accept-Language": "es-CL,es;q=0.9,en;q=0.8",
-                    "sec-ch-ua": (
-                        '"Chromium";v="124", "Google Chrome";v="124",'
-                        ' "Not-A.Brand";v="99"'
-                    ),
+                    "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
                     "sec-ch-ua-platform": '"Windows"',
                     "sec-ch-ua-mobile": "?0",
                 },
             )
 
-            # Ocultar navigator.webdriver — señal principal de bot detection
             await context.add_init_script(
                 """
                 Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
@@ -336,60 +352,115 @@ class EasyScraper:
 
             page: Page = await context.new_page()
 
-            # Bloquear assets pesados que no aportan datos de producto
+            # Bloquear assets pesados
             await page.route(
                 "**/*.{png,jpg,jpeg,gif,webp,svg,ico,woff,woff2,ttf}",
                 lambda r: r.abort(),
             )
 
-            # ── Interceptor de red activo ─────────────────────────────
-            page.on("response", self._capturar_respuesta)
+            # ── Fase 1: Navegar a búsqueda y extraer __NEXT_DATA__ ────
+            search_url = f"{_EASY_BASE}/search/{quote_plus(query)}"
+            print(f"[Easy] Navegando a {search_url}")
+            try:
+                await page.goto(search_url, wait_until="domcontentloaded", timeout=TIMEOUT_BROWSER_MS)
+            except Exception:
+                # Fallback: URL legacy
+                search_url = f"{_EASY_BASE}/search?q={quote_plus(query)}"
+                print(f"[Easy] Fallback URL: {search_url}")
+                await page.goto(search_url, wait_until="domcontentloaded", timeout=TIMEOUT_BROWSER_MS)
 
-            # ── Fase 0: Warm-up en Home (establece cookies VTEX) ──────
-            await self._warmup(page)
+            await asyncio.sleep(2)
 
-            # ── Navegar a la página de resultados ─────────────────────
-            await self._navegar_a_resultados(page, query)
+            html = await page.content()
 
-            # ── Fase 1: Procesar lo que capturó la red ─────────────────
-            print(f"🔵 [Easy] [Fase 1] Procesando {len(self._payloads_red)} payloads de red...")
-            productos = self._procesar_red(max_resultados)
-
-            if productos:
-                print(f"✅ [Easy] [Fase 1] ÉXITO — {len(productos)} productos via red")
-                return self._resultado_ok(productos, inicio, "network")
-
-            print(f"⚠️  [Easy] [Fase 1] Sin resultados. Pasando a Fase 2...")
-
-            # ── Fase 2: window.__STATE__ / Apollo cache ─────────────────
-            print(f"🔵 [Easy] [Fase 2] Extrayendo window.__STATE__...")
-            productos = await self._fase_state(page, max_resultados)
-
-            if productos:
-                print(f"✅ [Easy] [Fase 2] ÉXITO — {len(productos)} productos via __STATE__")
-                return self._resultado_ok(productos, inicio, "apollo_state")
-
-            print(f"⚠️  [Easy] [Fase 2] Sin resultados. Pasando a Fase 3...")
-
-            # ── Fase 3: DOM Scraping ────────────────────────────────────
-            print(f"🔵 [Easy] [Fase 3] Iniciando DOM scraping con scroll...")
-            productos = await self._fase_dom(page, max_resultados)
-
-            if productos:
-                print(f"✅ [Easy] [Fase 3] ÉXITO — {len(productos)} productos via DOM")
-                return self._resultado_ok(productos, inicio, "dom")
-
-            print(f"🔴 [Easy] FATAL: Todas las fases fallaron para '{query}'")
-            return ResultadoScraper(
-                self.proveedor,
-                EstadoScraping.BLOQUEADO,
-                error_msg="Fases 1+2+3 sin resultados",
-                duracion_seg=self._duracion(inicio),
+            # Extraer __NEXT_DATA__
+            match = re.search(
+                r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
+                html,
+                re.DOTALL,
             )
 
+            product_list = []
+            build_id = None
+
+            if match:
+                print(f"[Easy] [Fase 1] __NEXT_DATA__ encontrado ({len(match.group(1)):,} chars)")
+                try:
+                    next_data = json.loads(match.group(1))
+                    build_id = next_data.get("buildId")
+                    product_list = self._extraer_product_list(next_data)
+                    print(f"[Easy] [Fase 1] productList tiene {len(product_list)} items")
+                except json.JSONDecodeError as exc:
+                    print(f"[Easy] [Fase 1] JSON invalido: {exc}")
+
+            if not product_list:
+                print(f"[Easy] [Fase 1] Sin productos. Pasando a Fase 2 (API directa)...")
+
+                # ── Fase 2: Obtener buildId y llamar API _next/data ───
+                if not build_id:
+                    build_id = await self._obtener_build_id(page, html)
+
+                if build_id:
+                    product_list = await self._fase_api_next_data(page, build_id, query)
+                else:
+                    print(f"[Easy] [Fase 2] No se pudo obtener buildId")
+
+            if not product_list:
+                print(f"[Easy] FATAL: No se encontraron productos para '{query}'")
+                dump_scraper_data(
+                    query=query, proveedor="Easy", metodo="next_data_fallido",
+                    items_crudos=[], productos_finales=[],
+                    duracion_seg=self._duracion(inicio),
+                    error_msg="__NEXT_DATA__ sin productList y API fallida",
+                    extra={"html_length": len(html), "url": page.url, "build_id": build_id},
+                )
+                return ResultadoScraper(
+                    self.proveedor,
+                    EstadoScraping.BLOQUEADO,
+                    error_msg="Sin productos en __NEXT_DATA__",
+                    duracion_seg=self._duracion(inicio),
+                )
+
+            # ── Normalizar productList → ProductoProveedorCreate ──
+            productos = self._normalizar_next_data(product_list, max_resultados, query)
+            print(f"[Easy] {len(productos)} productos normalizados de {len(product_list)} crudos")
+
+            if productos:
+                dump_scraper_data(
+                    query=query, proveedor="Easy", metodo="next_data",
+                    items_crudos=product_list[:50], productos_finales=productos,
+                    duracion_seg=self._duracion(inicio),
+                )
+                return ResultadoScraper(
+                    self.proveedor,
+                    EstadoScraping.EXITO,
+                    productos,
+                    duracion_seg=self._duracion(inicio),
+                    metodo="next_data",
+                )
+            else:
+                dump_scraper_data(
+                    query=query, proveedor="Easy", metodo="next_data_sin_relevantes",
+                    items_crudos=product_list[:50], productos_finales=[],
+                    duracion_seg=self._duracion(inicio),
+                    error_msg="productList tenia items pero ninguno normalizo correctamente",
+                )
+                return ResultadoScraper(
+                    self.proveedor,
+                    EstadoScraping.BLOQUEADO,
+                    error_msg="Productos encontrados pero sin precio/nombre valido",
+                    duracion_seg=self._duracion(inicio),
+                )
+
         except Exception as exc:
-            print(f"🔴 [Easy] EXCEPCIÓN NO MANEJADA: {exc}")
+            print(f"[Easy] EXCEPCION NO MANEJADA: {exc}")
             traceback.print_exc()
+            dump_scraper_data(
+                query=query, proveedor="Easy", metodo="excepcion",
+                items_crudos=[], productos_finales=[],
+                duracion_seg=self._duracion(inicio),
+                error_msg=str(exc),
+            )
             return ResultadoScraper(
                 self.proveedor,
                 EstadoScraping.ERROR,
@@ -401,471 +472,270 @@ class EasyScraper:
                 await context.close()
 
     # ------------------------------------------------------------------
-    # Fase 0 — Warm-up (cookies VTEX)
+    # Extracción de productList desde __NEXT_DATA__
     # ------------------------------------------------------------------
-    async def _warmup(self, page: Page) -> None:
+    def _extraer_product_list(self, next_data: dict) -> list:
         """
-        Visita la Home para que VTEX establezca vtex_segment y vtex_session.
-        Sin estas cookies, la búsqueda directa puede redirigir al inicio.
+        Navega: props.pageProps.serverProductsResponse.productList
+        También intenta pageProps directamente (por si la estructura varía).
         """
-        print(f"🔵 [Easy] [Warmup] Visitando Home para cookies VTEX...")
         try:
-            await page.goto(_EASY_BASE + "/", wait_until="domcontentloaded", timeout=20_000)
-            await asyncio.sleep(random.uniform(1.2, 2.5))
+            page_props = next_data.get("props", {}).get("pageProps", {})
+            if not page_props:
+                page_props = next_data.get("pageProps", {})
 
-            for _ in range(2):
-                await page.mouse.move(random.randint(200, 1100), random.randint(100, 500))
-                await asyncio.sleep(random.uniform(0.1, 0.3))
+            server_resp = page_props.get("serverProductsResponse", {})
+            product_list = server_resp.get("productList", [])
 
-            print(f"🔵 [Easy] [Warmup] Cookies OK. URL: {page.url}")
+            if isinstance(product_list, list) and product_list:
+                return product_list
+
+            # Fallback: buscar recursivamente cualquier lista de productos
+            return self._buscar_product_list_recursivo(next_data)
         except Exception as exc:
-            print(f"⚠️  [Easy] [Warmup] Falló ({exc}). Continuando de todas formas...")
+            print(f"[Easy] Error extrayendo productList: {exc}")
+            return []
+
+    def _buscar_product_list_recursivo(self, data: Any, depth: int = 5) -> list:
+        """Busca recursivamente una lista que contenga objetos con productName."""
+        if depth <= 0:
+            return []
+        if isinstance(data, dict):
+            # Buscar claves conocidas
+            for key in ("productList", "products", "items", "results"):
+                val = data.get(key)
+                if isinstance(val, list) and len(val) > 0:
+                    if isinstance(val[0], dict) and ("productName" in val[0] or "sku" in val[0]):
+                        return val
+            for val in data.values():
+                result = self._buscar_product_list_recursivo(val, depth - 1)
+                if result:
+                    return result
+        elif isinstance(data, list):
+            # Si esta lista parece ser productList
+            if len(data) > 0 and isinstance(data[0], dict) and ("productName" in data[0] or "sku" in data[0]):
+                return data
+            for item in data:
+                result = self._buscar_product_list_recursivo(item, depth - 1)
+                if result:
+                    return result
+        return []
 
     # ------------------------------------------------------------------
-    # Navegación a resultados
+    # Fase 2 — API _next/data directa
     # ------------------------------------------------------------------
-    async def _navegar_a_resultados(self, page: Page, query: str) -> None:
-        exitoso = await self._buscar_con_input(page, query)
+    async def _obtener_build_id(self, page: Page, html: str) -> Optional[str]:
+        """Intenta extraer el buildId de Next.js desde el HTML o JS."""
+        # Método 1: regex en HTML
+        m = re.search(r'"buildId"\s*:\s*"([^"]+)"', html)
+        if m:
+            print(f"[Easy] BuildId encontrado en HTML: {m.group(1)}")
+            return m.group(1)
 
-        if not exitoso:
-            url_directa = _EASY_SEARCH.format(query=quote_plus(query))
-            print(f"🔵 [Easy] Fallback URL directa: {url_directa}")
-            try:
-                await page.goto(url_directa, wait_until="domcontentloaded", timeout=30_000)
-            except Exception:
-                await page.goto(url_directa, wait_until="load", timeout=30_000)
+        # Método 2: _buildManifest.js URL
+        m = re.search(r'/_next/static/([^/]+)/_buildManifest\.js', html)
+        if m:
+            print(f"[Easy] BuildId encontrado en _buildManifest: {m.group(1)}")
+            return m.group(1)
 
-        print(f"🔵 [Easy] Página de resultados cargada. URL: {page.url}")
-        await asyncio.sleep(random.uniform(2.0, 3.5))
-
-    async def _buscar_con_input(self, page: Page, query: str) -> bool:
-        """Escribe en el buscador de la Home como lo haría un humano."""
-        selectores = [
-            'input[placeholder*="uscar"]',
-            'input[placeholder*="earch"]',
-            'input[type="search"]',
-            '[class*="searchBar"] input',
-            '[class*="search-bar"] input',
-            'header input',
-        ]
-        for sel in selectores:
-            try:
-                loc = page.locator(sel).first
-                if await loc.count() == 0:
-                    continue
-                print(f"🔵 [Easy] Input encontrado con: {sel}")
-                await loc.click()
-                await asyncio.sleep(0.3)
-                await loc.type(query, delay=random.randint(40, 90))
-                await asyncio.sleep(0.4)
-                await page.keyboard.press("Enter")
-                print(f"🔵 [Easy] Búsqueda lanzada desde input visual.")
-                await asyncio.sleep(random.uniform(2.5, 4.0))
-                return True
-            except Exception as exc:
-                print(f"⚠️  [Easy] Selector '{sel}' falló: {exc}")
-        print(f"⚠️  [Easy] No se encontró buscador visual.")
-        return False
-
-    # ------------------------------------------------------------------
-    # Interceptor de red (callback asíncrono)
-    # ------------------------------------------------------------------
-    async def _capturar_respuesta(self, response: Response) -> None:
-        if response.status != 200:
-            return
-        ct = response.headers.get("content-type", "")
-        if "json" not in ct:
-            return
-        url = response.url
-        if any(x in url for x in ["gtm", "analytics", "pixel", "hotjar", "insider"]):
-            return
-        if not any(sig in url.lower() for sig in _URL_PRODUCT_SIGNALS):
-            return
+        # Método 3: desde window.__NEXT_DATA__ via JS
         try:
-            data = await response.json()
-            texto = json.dumps(data) if not isinstance(data, str) else data
-            if any(s in texto for s in ["productId", "productName", "commertialOffer", "CommercialOffer"]):
-                self._payloads_red.append({"url": url, "data": data})
-                print(f"   🕵️  [Easy Net] Payload capturado: {url[:70]}...")
+            bid = await page.evaluate("() => window.__NEXT_DATA__?.buildId || null")
+            if bid:
+                print(f"[Easy] BuildId encontrado via JS: {bid}")
+                return bid
         except Exception:
             pass
 
-    # ------------------------------------------------------------------
-    # Fase 1 — Procesar payloads de red
-    # ------------------------------------------------------------------
-    def _procesar_red(self, max_resultados: int) -> List[ProductoProveedorCreate]:
-        items_crudos: list = []
-        for payload in self._payloads_red:
-            data = payload["data"]
-            url = payload["url"]
-            print(f"   🔍 [Fase 1] Analizando: {url[:60]}...")
+        return None
 
-            # Búsqueda recursiva general
-            _aspirar_productos(data, items_crudos)
-
-            # Rutas específicas de GraphQL VTEX
-            items_crudos.extend(self._rutas_vtex(data))
-
-        print(f"   🔍 [Fase 1] Items crudos en red: {len(items_crudos)}")
-        return self._normalizar_items(items_crudos, max_resultados, "network")
-
-    def _rutas_vtex(self, data: Any) -> list:
-        encontrados: list = []
-        if isinstance(data, list):
-            for entry in data:
-                if isinstance(entry, dict):
-                    encontrados.extend(self._extraer_de_graphql_data(entry.get("data", {})))
-        elif isinstance(data, dict):
-            encontrados.extend(self._extraer_de_graphql_data(data.get("data", data)))
-        return encontrados
-
-    def _extraer_de_graphql_data(self, data: dict) -> list:
-        if not isinstance(data, dict):
-            return []
-        encontrados = []
-        for raiz in [
-            data.get("productSearch", {}),
-            data.get("search", {}),
-            data.get("products", {}),
-            data.get("searchResult", {}),
-        ]:
-            if not isinstance(raiz, dict):
-                continue
-            prods = raiz.get("products") or raiz.get("items") or []
-            if isinstance(prods, list) and prods:
-                print(f"   ✨ [Fase 1] Ruta GraphQL → {len(prods)} productos")
-                encontrados.extend(prods)
-        return encontrados
-
-    # ------------------------------------------------------------------
-    # Fase 2 — Apollo / VTEX __STATE__
-    # ------------------------------------------------------------------
-    async def _fase_state(self, page: Page, max_resultados: int) -> List[ProductoProveedorCreate]:
-        state_str: Optional[str] = await page.evaluate(
-            """
-            () => {
-                if (window.__STATE__) return JSON.stringify(window.__STATE__);
-                if (window.__NEXT_DATA__) return JSON.stringify(window.__NEXT_DATA__);
-                if (window.__RUNTIME__ && window.__RUNTIME__.queryData)
-                    return JSON.stringify(window.__RUNTIME__.queryData);
-                for (const el of document.querySelectorAll('script[type="application/json"]')) {
-                    const t = el.textContent || '';
-                    if (t.includes('productId')) return t;
-                }
-                for (const el of document.querySelectorAll('script:not([src])')) {
-                    const t = el.textContent || '';
-                    if (t.startsWith('window.__STATE__'))
-                        return t.replace(/^window\\.__STATE__\\s*=\\s*/, '').replace(/;\\s*$/, '');
-                }
-                return null;
-            }
-            """
-        )
-
-        if not state_str:
-            print(f"   ⚠️  [Fase 2] No se encontró __STATE__.")
-            return []
-
-        print(f"   🟢 [Fase 2] __STATE__ encontrado ({len(state_str):,} chars). Parseando...")
+    async def _fase_api_next_data(self, page: Page, build_id: str, query: str) -> list:
+        """Llama directamente a la API _next/data para obtener productos."""
+        api_url = f"{_EASY_BASE}/_next/data/{build_id}/search/{quote_plus(query)}.json?search={quote_plus(query)}"
+        print(f"[Easy] [Fase 2] Llamando API: {api_url[:80]}...")
 
         try:
-            state = json.loads(state_str)
-        except json.JSONDecodeError as exc:
-            print(f"   🔴 [Fase 2] JSON inválido: {exc}")
-            return []
-
-        items_crudos: list = []
-        if isinstance(state, dict):
-            for key, val in state.items():
-                if not isinstance(val, dict):
-                    continue
-                # Claves Apollo: "Product:ID", "StoreProduct:ID", etc.
-                if any(key.startswith(p) for p in ("Product:", "StoreProduct:", "SKU:", "Item:")):
-                    items_crudos.append(val)
-                elif "data" in val:
-                    _aspirar_productos(val["data"], items_crudos)
-
-        if not items_crudos:
-            print(f"   ⚠️  [Fase 2] Cache Apollo vacío, intentando recursivo...")
-            _aspirar_productos(state, items_crudos)
-
-        print(f"   🔍 [Fase 2] Items en __STATE__: {len(items_crudos)}")
-        return self._normalizar_items(items_crudos, max_resultados, "apollo_state")
-
-    # ------------------------------------------------------------------
-    # Fase 3 — DOM Scraping
-    # ------------------------------------------------------------------
-    async def _fase_dom(self, page: Page, max_resultados: int) -> List[ProductoProveedorCreate]:
-        await self._scroll_lazy_load(page)
-
-        for sel in _VTEX_SELECTORS:
-            try:
-                elems = await page.query_selector_all(sel)
-                if not elems:
-                    continue
-                print(f"   🔍 [Fase 3] Selector '{sel}' → {len(elems)} elementos")
-                items_dom = await self._extraer_dom_js(page)
-                if items_dom:
-                    return self._normalizar_dom(items_dom, max_resultados)
-            except Exception as exc:
-                print(f"   ⚠️  [Fase 3] Selector '{sel}' falló: {exc}")
-
-        # Último recurso: JS agresivo
-        print(f"   🔵 [Fase 3] JS agresivo...")
-        return await self._js_agresivo(page, max_resultados)
-
-    async def _scroll_lazy_load(self, page: Page) -> None:
-        print(f"   🔵 [Fase 3] Scroll para lazy loading...")
-        altura: int = await page.evaluate("document.body.scrollHeight")
-        pos, paso, iters = 0, 700, 0
-        while pos < altura and iters < 20:
-            pos = min(pos + paso, altura)
-            await page.evaluate(f"window.scrollTo(0, {pos})")
-            await asyncio.sleep(random.uniform(0.4, 0.9))
-            nueva: int = await page.evaluate("document.body.scrollHeight")
-            if nueva > altura:
-                print(f"   📏 Página creció: {altura:,} → {nueva:,}px")
-                altura = nueva
-            iters += 1
-        await asyncio.sleep(0.8)
-        print(f"   ✅ Scroll completado ({iters} pasos).")
-
-    async def _extraer_dom_js(self, page: Page) -> list:
-        return await page.evaluate(
-            """
-            () => {
-                const items = [];
-                const SELS = [
-                    '[class*="vtex-product-summary-2-x-container"]',
-                    '[class*="productSummary"]',
-                    '[class*="galleryItem"] section',
-                    '[data-product-id]',
-                    'section[class*="product"]',
-                    'article[class*="product"]',
-                    '.shelf-item',
-                ];
-                let cards = [];
-                for (const s of SELS) {
-                    const found = document.querySelectorAll(s);
-                    if (found.length > 0) { cards = Array.from(found); break; }
-                }
-                if (!cards.length) return items;
-                for (const card of cards) {
-                    const nameEl  = card.querySelector(
-                        '[class*="productName"],[class*="nameComplete"],' +
-                        '[class*="productTitle"],h2,h3,h4');
-                    const priceEl = card.querySelector(
-                        '[class*="sellingPrice"]:not([class*="list"]),' +
-                        '[class*="spotPrice"],[class*="price_sellingPrice"]')
-                        || card.querySelector('[class*="price"],[class*="Price"]');
-                    const imgEl   = card.querySelector('img[src],img[data-src]');
-                    const linkEl  = card.tagName === 'A' ? card : card.querySelector('a[href]');
-                    if (!nameEl || !priceEl) continue;
-                    const rawPrice = priceEl.innerText || priceEl.textContent || '';
-                    if (!rawPrice.match(/\\d/)) continue;
-                    items.push({
-                        name:  (nameEl.innerText || '').trim(),
-                        price: rawPrice.trim(),
-                        link:  linkEl ? (linkEl.href || '') : '',
-                        image: imgEl  ? (imgEl.src || imgEl.dataset.src || '') : '',
-                        sku:   card.dataset.productId || card.dataset.sku || card.id || '',
-                    });
-                }
-                return items;
-            }
-            """
-        )
-
-    async def _js_agresivo(self, page: Page, max_resultados: int) -> List[ProductoProveedorCreate]:
-        items_raw: list = await page.evaluate(
-            """
-            () => {
-                const items = [];
-                const priceEls = document.querySelectorAll(
-                    '[class*="price"],[class*="Price"],[class*="valor"],[class*="monto"]'
-                );
-                for (const pEl of priceEls) {
-                    const txt = pEl.innerText || '';
-                    if (!txt.match(/\\$[\\s\\d.,]+/)) continue;
-                    let container = pEl.parentElement;
-                    let nombre = '';
-                    for (let i = 0; i < 5; i++) {
-                        if (!container) break;
-                        const h = container.querySelector('h1,h2,h3,h4,[class*="name"],[class*="Name"]');
-                        if (h) { nombre = (h.innerText || '').trim(); break; }
-                        container = container.parentElement;
+            response = await page.evaluate(
+                """
+                async (url) => {
+                    try {
+                        const resp = await fetch(url, {
+                            headers: { 'Accept': 'application/json' }
+                        });
+                        if (!resp.ok) return { error: resp.status };
+                        return await resp.json();
+                    } catch(e) {
+                        return { error: e.message };
                     }
-                    if (!nombre || nombre.length < 4) continue;
-                    const linkEl = container ? container.querySelector('a[href]') : null;
-                    const imgEl  = container ? container.querySelector('img') : null;
-                    items.push({
-                        name:  nombre,
-                        price: txt.trim(),
-                        link:  linkEl ? (linkEl.href || '') : window.location.href,
-                        image: imgEl  ? (imgEl.src || '') : '',
-                        sku:   '',
-                    });
                 }
-                return items;
-            }
-            """
-        )
-        print(f"   🔍 [Fase 3-JS] JS agresivo → {len(items_raw)} candidatos")
-        return self._normalizar_dom(items_raw, max_resultados)
+                """,
+                api_url,
+            )
+
+            if isinstance(response, dict) and "error" in response:
+                print(f"[Easy] [Fase 2] Error API: {response['error']}")
+                return []
+
+            # Extraer productList del response
+            page_props = response.get("pageProps", {})
+            server_resp = page_props.get("serverProductsResponse", {})
+            product_list = server_resp.get("productList", [])
+
+            if isinstance(product_list, list):
+                print(f"[Easy] [Fase 2] API retorno {len(product_list)} productos")
+                return product_list
+
+        except Exception as exc:
+            print(f"[Easy] [Fase 2] Excepcion en API: {exc}")
+
+        return []
 
     # ------------------------------------------------------------------
-    # Normalización VTEX JSON → ProductoProveedorCreate
+    # Normalización Next.js productList → ProductoProveedorCreate
     # ------------------------------------------------------------------
-    def _normalizar_items(
-        self, items: list, max_resultados: int, fuente: str
+    def _normalizar_next_data(
+        self, product_list: list, max_resultados: int, query: str
     ) -> List[ProductoProveedorCreate]:
+        """
+        Mapea los objetos de productList de Easy Next.js a ProductoProveedorCreate.
+
+        Campos del producto Easy Next.js:
+          productName  → nombre
+          sku          → SKU
+          prices.normalPrice / prices.offerPrice → precio
+          imageUrl     → imagen
+          linkText     → URL (prefijo https://www.easy.cl/)
+          brand        → marca
+        """
         productos: List[ProductoProveedorCreate] = []
         vistos: set = set()
 
-        for item in items:
+        # Preparar filtro de relevancia
+        query_norm = self._normalizar_texto(query)
+        palabras_query = {p for p in query_norm.split() if len(p) >= 3}
+
+        for item in product_list:
             if len(productos) >= max_resultados:
                 break
             if not isinstance(item, dict):
                 continue
 
-            nombre = str(
-                item.get("productName") or item.get("name") or
-                item.get("Name") or item.get("title") or ""
-            ).strip()
+            nombre = str(item.get("productName") or "").strip()
             if not nombre or len(nombre) < 3:
                 continue
 
-            sku = str(
-                item.get("productId") or item.get("skuId") or
-                item.get("id") or item.get("sku") or ""
-            ).strip()
+            # Filtro de relevancia: al menos una palabra del query en el nombre
+            if palabras_query:
+                nombre_norm = self._normalizar_texto(nombre)
+                if not any(p in nombre_norm for p in palabras_query):
+                    continue
+
+            sku = str(item.get("sku") or item.get("productId") or "").strip()
             if not sku:
                 sku = f"EASY-{abs(hash(nombre)) % 999_999:06d}"
             if sku in vistos:
                 continue
 
-            precio = self._extraer_precio_vtex(item) or _encontrar_precio(item)
-            if not precio or precio < 1:
+            # Precio: offerPrice (descuento) > normalPrice
+            precio = self._extraer_precio_easy(item)
+            if not precio or precio < 10:
                 continue
 
-            link = str(item.get("link") or item.get("linkText") or item.get("slug") or "")
-            if link and not link.startswith("http"):
-                suffix = "/p" if not link.endswith("/p") else ""
-                link = f"{_EASY_BASE}/{link.lstrip('/')}{suffix}"
-            if not link:
-                link = _EASY_BASE
+            # URL del producto
+            link_text = str(item.get("linkText") or "").strip()
+            if link_text:
+                url_producto = f"{_EASY_BASE}/{link_text.lstrip('/')}"
+            else:
+                url_producto = _EASY_BASE
 
-            img = _encontrar_imagen(item) or ""
-            marca = str(item.get("brand") or item.get("brandName") or item.get("Brand") or "") or None
+            # Imagen
+            imagen = str(item.get("imageUrl") or "").strip()
+            if not imagen:
+                imagen = _encontrar_imagen(item) or ""
+
+            # Marca
+            marca = str(item.get("brand") or "").strip() or None
 
             try:
                 productos.append(
                     ProductoProveedorCreate(
                         proveedor=self.proveedor,
                         sku_proveedor=sku[:120],
-                        url_producto=link,
+                        url_producto=url_producto,
                         nombre_raw=nombre[:400],
                         marca=marca,
                         precio_clp=float(precio),
-                        imagen_url=img or None,
+                        imagen_url=imagen or None,
                         disponible=True,
                     )
                 )
                 vistos.add(sku)
+                print(f"  [Easy] + {nombre[:60]} | SKU:{sku} | ${precio:,.0f}")
             except Exception as exc:
-                print(f"   ⚠️  [Normalizar] {exc}")
-
-        return productos
-
-    def _normalizar_dom(self, items: list, max_resultados: int) -> List[ProductoProveedorCreate]:
-        """Normaliza items que vienen del DOM (formato name/price/link/image/sku)."""
-        productos: List[ProductoProveedorCreate] = []
-        vistos: set = set()
-
-        for item in items[:max_resultados]:
-            precio_clp = _limpiar_precio(item.get("price"))
-            if not precio_clp or precio_clp < 1:
-                continue
-            nombre = str(item.get("name") or "").strip()
-            if not nombre or len(nombre) < 3:
-                continue
-            url = str(item.get("link") or "")
-            if url and not url.startswith("http"):
-                url = _EASY_BASE + url
-            if not url:
-                url = _EASY_BASE
-            sku = str(item.get("sku") or "").strip()
-            if not sku:
-                sku = f"EASY-{abs(hash(nombre + url)) % 999_999:06d}"
-            if sku in vistos:
-                continue
-            try:
-                productos.append(
-                    ProductoProveedorCreate(
-                        proveedor=self.proveedor,
-                        sku_proveedor=sku[:120],
-                        url_producto=url,
-                        nombre_raw=nombre[:400],
-                        marca=None,
-                        precio_clp=precio_clp,
-                        imagen_url=item.get("image") or None,
-                        disponible=True,
-                    )
-                )
-                vistos.add(sku)
-            except Exception as exc:
-                print(f"   ⚠️  [Normalizar DOM] {exc}")
+                print(f"  [Easy] Error normalizando: {exc}")
 
         return productos
 
     # ------------------------------------------------------------------
     # Helpers privados
     # ------------------------------------------------------------------
-    def _extraer_precio_vtex(self, item: dict) -> Optional[float]:
+    @staticmethod
+    def _extraer_precio_easy(item: dict) -> Optional[float]:
         """
-        Sigue la jerarquía VTEX: items → sellers → commertialOffer → Price.
-        Nota: 'commertialOffer' (con 'e') es el typo histórico de VTEX.
+        Extrae precio del objeto Easy Next.js.
+        Prioridad: offerPrice (descuento) > normalPrice > commercialOffer.
+        Los precios son enteros en CLP.
         """
-        for items_key in ("items", "Items"):
-            skus = item.get(items_key, [])
-            if not (isinstance(skus, list) and skus):
-                continue
-            for seller_key in ("sellers", "Sellers"):
-                sellers = skus[0].get(seller_key, [])
-                if not (isinstance(sellers, list) and sellers):
-                    continue
-                offer = sellers[0].get(
-                    "commertialOffer",
-                    sellers[0].get("CommercialOffer", {}),
-                )
-                for key in _PRICE_KEYS:
-                    val = offer.get(key)
-                    if val and float(val) > 0:
-                        return float(val)
+        prices = item.get("prices")
+        if isinstance(prices, dict):
+            # Preferir offerPrice si existe (precio con descuento)
+            offer = prices.get("offerPrice")
+            if offer is not None:
+                try:
+                    val = float(offer)
+                    if val > 0:
+                        return val
+                except (TypeError, ValueError):
+                    pass
+            # Precio normal
+            normal = prices.get("normalPrice")
+            if normal is not None:
+                try:
+                    val = float(normal)
+                    if val > 0:
+                        return val
+                except (TypeError, ValueError):
+                    pass
 
-        # priceRange (VTEX IO GraphQL moderno)
-        pr = item.get("priceRange") or {}
-        sp = pr.get("sellingPrice") or {}
-        low = sp.get("lowPrice") or sp.get("high") or 0
-        if low:
-            return float(low)
+        # Fallback: commercialOffer.defaultOffer.prices
+        comm = item.get("commercialOffer", {})
+        if isinstance(comm, dict):
+            default_offer = comm.get("defaultOffer", {})
+            if isinstance(default_offer, dict):
+                inner_prices = default_offer.get("prices", {})
+                if isinstance(inner_prices, dict):
+                    for key in ("offerPrice", "normalPrice"):
+                        val = inner_prices.get(key)
+                        if val is not None:
+                            try:
+                                fval = float(val)
+                                if fval > 0:
+                                    return fval
+                            except (TypeError, ValueError):
+                                pass
 
-        for key in _PRICE_KEYS:
-            val = item.get(key)
-            if val and isinstance(val, (int, float)) and float(val) > 0:
-                return float(val)
+        # Fallback genérico
+        return _encontrar_precio(item)
 
-        return None
-
-    def _resultado_ok(
-        self, productos: List[ProductoProveedorCreate], inicio: float, metodo: str
-    ) -> ResultadoScraper:
-        return ResultadoScraper(
-            self.proveedor,
-            EstadoScraping.EXITO,
-            productos,
-            duracion_seg=self._duracion(inicio),
-            metodo=metodo,
+    @staticmethod
+    def _normalizar_texto(texto: str) -> str:
+        """Normaliza texto quitando tildes y pasando a minúsculas."""
+        return (
+            texto.lower().strip()
+            .replace("a\u0301", "a").replace("e\u0301", "e").replace("i\u0301", "i")
+            .replace("o\u0301", "o").replace("u\u0301", "u")
+            .replace("\xe1", "a").replace("\xe9", "e").replace("\xed", "i")
+            .replace("\xf3", "o").replace("\xfa", "u").replace("\xf1", "n")
         )
 
     @staticmethod

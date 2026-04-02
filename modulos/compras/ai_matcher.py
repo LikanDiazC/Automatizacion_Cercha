@@ -283,8 +283,14 @@ def buscar_por_similitud(
 
 PROMPT_SISTEMA = """
 Eres un experto en materiales de construcción y ferretería chilena.
-Tu única tarea es determinar si dos productos de distintas tiendas
-son EXACTAMENTE el mismo artículo (equivalentes para compra).
+Tienes DOS tareas en orden:
+
+1. RELEVANCIA: ¿Cada producto corresponde a lo que el usuario buscó?
+   Si alguno de los dos NO es relevante al término de búsqueda,
+   responde es_mismo_producto=false y confidence_score=0.0.
+
+2. EQUIVALENCIA: Solo si AMBOS son relevantes, determina si son
+   EXACTAMENTE el mismo artículo (equivalentes para compra).
 
 Analiza CON DETALLE:
   - Nombre y descripción
@@ -298,7 +304,9 @@ Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional:
   "es_mismo_producto": true | false,
   "confidence_score": 0.0 a 1.0,
   "razon": "Explicación breve (máx 100 palabras)",
-  "diferencias_criticas": []
+  "diferencias_criticas": [],
+  "producto_a_relevante": true | false,
+  "producto_b_relevante": true | false
 }
 """.strip()
 
@@ -306,11 +314,12 @@ Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional:
 async def evaluar_con_llm(
     producto_a: ProductoProveedor,
     producto_b: ProductoProveedor,
+    query_original: str = "",
 ) -> dict:
+    bloque_query = f"\nBÚSQUEDA DEL USUARIO: \"{query_original}\"\n\n" if query_original else "\n"
     contenido: list[dict] = [{
         "type": "text",
-        "text": f"""
-PRODUCTO A ({producto_a.proveedor}):
+        "text": f"""{bloque_query}PRODUCTO A ({producto_a.proveedor}):
   Nombre: {producto_a.nombre_raw}
   Marca:  {producto_a.marca or 'No especificada'}
   Precio: ${producto_a.precio_clp:,.0f} CLP
@@ -451,6 +460,7 @@ async def comparar_productos(
     producto_a: ProductoProveedor,
     producto_b: ProductoProveedor,
     db: Session,
+    query_original: str = "",
 ) -> MatchResult:
     """
     Pipeline completo con detección automática de modo:
@@ -506,7 +516,7 @@ async def comparar_productos(
             sim, producto_a.sku_proveedor, producto_b.sku_proveedor,
         )
         try:
-            llm_r = await evaluar_con_llm(producto_a, producto_b)
+            llm_r = await evaluar_con_llm(producto_a, producto_b, query_original=query_original)
             confidence = float(llm_r.get("confidence_score", 0.0))
             es_match = llm_r.get("es_mismo_producto", False) and confidence >= UMBRAL_LLM_MATCH
             resultado = MatchResult(

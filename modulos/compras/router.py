@@ -38,6 +38,7 @@ from .ai_matcher import (
     comparar_productos,
     obtener_o_crear_canonical,
     generar_y_guardar_embedding,
+    similitud_textual,
     MatchResult,
 )
 
@@ -209,18 +210,42 @@ async def _construir_resultados_busqueda(
         por_proveedor.setdefault(p.proveedor, []).append(p)
 
     proveedores_con_datos = list(por_proveedor.keys())
-    
-    # 1. Tomamos el mejor representante de cada proveedor
+
+    # 1. Seleccionar el candidato más relevante al query por cada proveedor.
+    #    Si el mejor candidato no comparte ninguna palabra con el query, se descarta
+    #    ese proveedor (evita comparar p.ej. "Silla PC Asti negro" para búsqueda "tornillo").
     variantes_finales = []
     for prov in proveedores_con_datos:
-        if por_proveedor[prov]:
-            variantes_finales.append(por_proveedor[prov][0])
+        candidatos = por_proveedor.get(prov, [])
+        if not candidatos:
+            continue
+        # Ordenar por similitud Jaccard al query (mayor relevancia primero)
+        candidatos_ordenados = sorted(
+            candidatos,
+            key=lambda p: similitud_textual(query, p.nombre_raw),
+            reverse=True,
+        )
+        mejor = candidatos_ordenados[0]
+        relevancia = similitud_textual(query, mejor.nombre_raw)
+        if relevancia > 0.0:
+            variantes_finales.append(mejor)
+        else:
+            logger.warning(
+                "Proveedor %s descartado: ningún producto es relevante para '%s' "
+                "(mejor candidato: '%s', relevancia=0.0)",
+                prov, query, mejor.nombre_raw,
+            )
+
+    # Si ningún proveedor tiene productos relevantes, no retornar tarjeta vacía
+    if not variantes_finales:
+        logger.warning("Ningún proveedor tiene productos relevantes para '%s'", query)
+        return []
 
     # 2. IA compara los dos finalistas
     match_result: Optional[MatchResult] = None
     if len(variantes_finales) >= 2:
         try:
-            match_result = await comparar_productos(variantes_finales[0], variantes_finales[1], db)
+            match_result = await comparar_productos(variantes_finales[0], variantes_finales[1], db, query_original=query)
         except Exception as exc:
             logger.error("Error en matching IA: %s", exc)
 
@@ -479,6 +504,129 @@ def procesar_carrito(session_key: str, db: Session = Depends(get_db)) -> Resumen
         detalle=items_resp,
         advertencias=advertencias,
     )
+
+# ---------------------------------------------------------------------------
+# Endpoints: Catalogo con precios pre-scrapeados
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/catalogo",
+    summary="Catalogo completo — productos agrupados por canonical con precios",
+)
+def obtener_catalogo_endpoint(db: Session = Depends(get_db)):
+    from .catalogo import obtener_catalogo
+    return obtener_catalogo(db)
+
+
+@router.get(
+    "/catalogo/buscar",
+    summary="Buscar dentro del catalogo de la BD (sin scraping)",
+)
+def buscar_catalogo_endpoint(q: str = "", limite: int = 50, db: Session = Depends(get_db)):
+    from .catalogo import buscar_en_catalogo
+    return buscar_en_catalogo(db, q, limite)
+
+
+@router.get(
+    "/catalogo/estado",
+    summary="Estado de la ultima sincronizacion del catalogo",
+)
+def estado_catalogo(db: Session = Depends(get_db)):
+    from .catalogo import obtener_estado_sync
+    return obtener_estado_sync(db)
+
+
+@router.post(
+    "/catalogo/sync",
+    summary="Lanzar sincronizacion manual del catalogo (scrapea todo)",
+)
+async def sincronizar_catalogo(
+    request: Request,
+    background: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """
+    Lanza el scraping de TODAS las variantes del catalogo.
+    Esto toma varios minutos — se ejecuta en background.
+    """
+    from .catalogo import sync_catalogo
+
+    async def _sync_en_background():
+        db_bg = SessionLocal()
+        try:
+            resultado = await sync_catalogo(db_bg)
+            logger.info("Sync catalogo completado: %s", resultado)
+        except Exception as exc:
+            logger.error("Error en sync catalogo: %s", exc, exc_info=True)
+        finally:
+            db_bg.close()
+
+    background.add_task(asyncio.ensure_future, _sync_en_background())
+    return {"status": "sync_iniciado", "mensaje": "Sincronizacion del catalogo iniciada en background"}
+
+
+@router.post(
+    "/catalogo/sync-item",
+    summary="Sincronizar un solo item del catalogo",
+)
+@limiter.limit("5/minute")
+async def sincronizar_item(
+    request: Request,
+    body: BusquedaProductoRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Scrapea un solo producto y guarda en BD.
+    Util para actualizar un item especifico sin esperar el sync completo.
+    """
+    try:
+        resultados_scraper = await ejecutar_busqueda(
+            query=body.query,
+            proveedores=body.proveedores,
+            max_resultados=body.max_resultados,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    total = sum(len(r.productos) for r in resultados_scraper)
+    if total == 0:
+        return {"status": "sin_resultados", "query": body.query, "productos": 0}
+
+    persistidos = persistir_resultados_scraper(resultados_scraper, db)
+    return {
+        "status": "ok",
+        "query": body.query,
+        "productos": len(persistidos),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Endpoint: Diagnóstico de scraper
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/debug/dumps",
+    summary="Listar dumps de diagnóstico del scraper",
+)
+def listar_dumps_scraper(limite: int = 20):
+    from .scraper_debug import listar_dumps
+    return listar_dumps(limite)
+
+
+@router.get(
+    "/debug/dumps/{filename}",
+    summary="Leer un dump de diagnóstico específico",
+)
+def leer_dump_scraper(filename: str):
+    import json as _json
+    from pathlib import Path
+    dumps_dir = Path(__file__).parent.parent.parent / "debug" / "scraper_dumps"
+    filepath = dumps_dir / filename
+    if not filepath.exists() or not filepath.suffix == ".json":
+        raise HTTPException(status_code=404, detail="Dump no encontrado.")
+    with open(filepath, "r", encoding="utf-8") as f:
+        return _json.load(f)
+
 
 def _precio_de_proveedor(canonical_id: int, proveedor: NombreProveedor, db: Session) -> Optional[float]:
     p = db.query(ProductoProveedor).filter_by(canonical_id=canonical_id, proveedor=proveedor, disponible=True).order_by(ProductoProveedor.precio_clp.asc()).first()
