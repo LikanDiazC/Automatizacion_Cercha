@@ -14,7 +14,7 @@ NOTA DE MIGRACIÓN:
 from datetime import datetime
 from sqlalchemy import (
     Column, Integer, String, Float, Text,
-    Boolean, DateTime, ForeignKey, Enum as SAEnum
+    Boolean, DateTime, ForeignKey, Enum as SAEnum, Index,
 )
 from sqlalchemy.orm import relationship
 import enum
@@ -91,9 +91,40 @@ class ProductoProveedor(Base):
     # Relación al producto canónico (puede ser NULL hasta que la IA lo empare)
     canonical_id    = Column(Integer, ForeignKey("productos_canonical.id"), nullable=True)
     canonical       = relationship("ProductoCanonical", back_populates="variantes")
+    historial_precios = relationship("HistorialPrecios", back_populates="producto")
 
     def __repr__(self) -> str:
         return f"<ProductoProveedor id={self.id} proveedor={self.proveedor} sku={self.sku_proveedor}>"
+
+
+# ---------------------------------------------------------------------------
+# HistorialPrecios (tracking estilo SoloTodo)
+# ---------------------------------------------------------------------------
+
+class HistorialPrecios(Base):
+    """
+    Registro histórico de precios de un producto.
+    Cada vez que el sync detecta un cambio de precio, se crea una fila.
+    Permite gráficos de evolución de precios estilo SoloTodo.
+    """
+    __tablename__ = "historial_precios"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    producto_id     = Column(Integer, ForeignKey("productos_proveedor.id"), nullable=False, index=True)
+    canonical_id    = Column(Integer, ForeignKey("productos_canonical.id"), nullable=True, index=True)
+
+    precio_normal   = Column(Float, nullable=False)
+    precio_oferta   = Column(Float)
+    disponible      = Column(Boolean, default=True)
+
+    registrado_at   = Column(DateTime, default=datetime.utcnow, index=True)
+
+    producto        = relationship("ProductoProveedor", back_populates="historial_precios")
+
+    __table_args__ = (
+        Index("ix_historial_prod_fecha", "producto_id", "registrado_at"),
+        Index("ix_historial_canon_fecha", "canonical_id", "registrado_at"),
+    )
 
 
 # ---------------------------------------------------------------------------

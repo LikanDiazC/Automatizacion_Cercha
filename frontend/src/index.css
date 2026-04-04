@@ -1,17 +1,17 @@
 ﻿@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Spline+Sans:wght@400;500;600&display=swap');
 
 :root {
-  --bg: #f6f2eb;
-  --bg-strong: #efe7dc;
+  --bg: #f6f9fc;
+  --bg-strong: #edf2f7;
   --surface: #ffffff;
-  --surface-muted: #f7f3ed;
+  --surface-muted: #f8fafc;
   --text-primary: #1c232b;
   --text-secondary: #5f6b75;
   --accent: #1f3a5f;
   --accent-strong: #152a44;
   --accent-soft: rgba(31, 58, 95, 0.12);
   --copper: #c98c4a;
-  --border: rgba(28, 35, 43, 0.12);
+  --border: rgba(28, 35, 43, 0.10);
   --shadow: 0 12px 30px rgba(31, 35, 40, 0.08);
   --radius-lg: 18px;
   --radius-md: 12px;
@@ -28,11 +28,7 @@ body {
   font-family: var(--font-body);
   color: var(--text-primary);
   background-color: var(--bg);
-  background-image:
-    radial-gradient(rgba(31, 58, 95, 0.08) 1px, transparent 1px),
-    linear-gradient(120deg, #f8f4ee 0%, #f4efe7 45%, #eef2f6 100%);
-  background-size: 26px 26px, 100% 100%;
-  background-attachment: fixed;
+  background-image: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }

@@ -30,53 +30,67 @@ from .service import persistir_resultados_scraper
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Queries predefinidos para el sync diario
+# Categorías con color — el frontend las usa para chips y tarjetas
+# ---------------------------------------------------------------------------
+
+FAMILIAS_CONFIG = {
+    "Tornillos":              {"color": "#6366f1", "icon": "🔩"},
+    "Clavos":                 {"color": "#ef4444", "icon": "📌"},
+    "Pernos":                 {"color": "#3b82f6", "icon": "⚙️"},
+    "Tuercas y Golillas":     {"color": "#f59e0b", "icon": "🔧"},
+    "Tirafondos":             {"color": "#8b5cf6", "icon": "🪛"},
+    "Placas y Conectores":    {"color": "#10b981", "icon": "🛠️"},
+    "Adhesivos y Sellantes":  {"color": "#ec4899", "icon": "🧴"},
+}
+
+# ---------------------------------------------------------------------------
+# Queries predefinidos para el sync diario — con familia asignada
 # ---------------------------------------------------------------------------
 
 QUERIES_SYNC = [
     # Tornillos
-    "Tornillo autoperforante 1 pulgada",
-    "Tornillo autoperforante 1 1/2 pulgada",
-    "Tornillo volcanita 6x1",
-    "Tornillo volcanita 6x1 5/8",
-    "Tornillo madera 8x2 pulgadas",
-    "Tornillo hexagonal 1/4 pulgada",
-    "Tornillo hexagonal 5/16 pulgada",
-    "Tornillo hexagonal 3/8 pulgada",
+    {"query": "Tornillo autoperforante 1 pulgada",       "familia": "Tornillos"},
+    {"query": "Tornillo autoperforante 1 1/2 pulgada",   "familia": "Tornillos"},
+    {"query": "Tornillo volcanita 6x1",                  "familia": "Tornillos"},
+    {"query": "Tornillo volcanita 6x1 5/8",              "familia": "Tornillos"},
+    {"query": "Tornillo madera 8x2 pulgadas",            "familia": "Tornillos"},
+    {"query": "Tornillo hexagonal 1/4 pulgada",          "familia": "Tornillos"},
+    {"query": "Tornillo hexagonal 5/16 pulgada",         "familia": "Tornillos"},
+    {"query": "Tornillo hexagonal 3/8 pulgada",          "familia": "Tornillos"},
     # Clavos
-    "Clavo 1 pulgada",
-    "Clavo 1 1/2 pulgada",
-    "Clavo 2 pulgadas",
-    "Clavo 2 1/2 pulgadas",
-    "Clavo 3 pulgadas",
-    "Clavo 4 pulgadas",
-    "Clavo acero 1 pulgada",
+    {"query": "Clavo 1 pulgada",                         "familia": "Clavos"},
+    {"query": "Clavo 1 1/2 pulgada",                     "familia": "Clavos"},
+    {"query": "Clavo 2 pulgadas",                        "familia": "Clavos"},
+    {"query": "Clavo 2 1/2 pulgadas",                    "familia": "Clavos"},
+    {"query": "Clavo 3 pulgadas",                        "familia": "Clavos"},
+    {"query": "Clavo 4 pulgadas",                        "familia": "Clavos"},
+    {"query": "Clavo acero 1 pulgada",                   "familia": "Clavos"},
     # Pernos
-    "Perno 1/4 x 1 pulgada",
-    "Perno 1/4 x 2 pulgadas",
-    "Perno 5/16 x 2 pulgadas",
-    "Perno 3/8 x 2 pulgadas",
-    "Perno 3/8 x 3 pulgadas",
+    {"query": "Perno 1/4 x 1 pulgada",                  "familia": "Pernos"},
+    {"query": "Perno 1/4 x 2 pulgadas",                 "familia": "Pernos"},
+    {"query": "Perno 5/16 x 2 pulgadas",                "familia": "Pernos"},
+    {"query": "Perno 3/8 x 2 pulgadas",                 "familia": "Pernos"},
+    {"query": "Perno 3/8 x 3 pulgadas",                 "familia": "Pernos"},
     # Tuercas / Golillas
-    "Tuerca hexagonal 1/4",
-    "Tuerca hexagonal 3/8",
-    "Golilla plana 1/4",
-    "Golilla presion 1/4",
+    {"query": "Tuerca hexagonal 1/4",                    "familia": "Tuercas y Golillas"},
+    {"query": "Tuerca hexagonal 3/8",                    "familia": "Tuercas y Golillas"},
+    {"query": "Golilla plana 1/4",                       "familia": "Tuercas y Golillas"},
+    {"query": "Golilla presion 1/4",                     "familia": "Tuercas y Golillas"},
     # Tirafondos
-    "Tirafondo 1/4 x 2 pulgadas",
-    "Tirafondo 1/4 x 3 pulgadas",
-    "Tirafondo 3/8 x 3 pulgadas",
+    {"query": "Tirafondo 1/4 x 2 pulgadas",             "familia": "Tirafondos"},
+    {"query": "Tirafondo 1/4 x 3 pulgadas",             "familia": "Tirafondos"},
+    {"query": "Tirafondo 3/8 x 3 pulgadas",             "familia": "Tirafondos"},
     # Placas / Conectores
-    "Placa perforada 80x200",
-    "Placa perforada 100x300",
-    "Escuadra metalica reforzada",
-    "Conector angular metalico",
-    "Pie derecho regulable",
+    {"query": "Placa perforada 80x200",                  "familia": "Placas y Conectores"},
+    {"query": "Placa perforada 100x300",                 "familia": "Placas y Conectores"},
+    {"query": "Escuadra metalica reforzada",             "familia": "Placas y Conectores"},
+    {"query": "Conector angular metalico",               "familia": "Placas y Conectores"},
+    {"query": "Pie derecho regulable",                   "familia": "Placas y Conectores"},
     # Adhesivos
-    "Silicona transparente",
-    "Silicona estructural",
-    "Adhesivo montaje",
-    "Espuma poliuretano expandido",
+    {"query": "Silicona transparente",                   "familia": "Adhesivos y Sellantes"},
+    {"query": "Silicona estructural",                    "familia": "Adhesivos y Sellantes"},
+    {"query": "Adhesivo montaje",                        "familia": "Adhesivos y Sellantes"},
+    {"query": "Espuma poliuretano expandido",            "familia": "Adhesivos y Sellantes"},
 ]
 
 
@@ -84,19 +98,71 @@ QUERIES_SYNC = [
 # Lectura del catalogo desde BD (agrupado por canonical)
 # ---------------------------------------------------------------------------
 
+def _inferir_familia(nombre: str) -> str:
+    """Infiere la familia de un producto a partir de su nombre."""
+    nombre_lower = nombre.lower()
+    if any(w in nombre_lower for w in ["tornillo", "autoperforante", "volcanita"]):
+        return "Tornillos"
+    if any(w in nombre_lower for w in ["clavo"]):
+        return "Clavos"
+    if any(w in nombre_lower for w in ["perno"]):
+        return "Pernos"
+    if any(w in nombre_lower for w in ["tuerca", "golilla"]):
+        return "Tuercas y Golillas"
+    if any(w in nombre_lower for w in ["tirafondo"]):
+        return "Tirafondos"
+    if any(w in nombre_lower for w in ["placa", "escuadra", "conector", "angular", "pie derecho"]):
+        return "Placas y Conectores"
+    if any(w in nombre_lower for w in ["silicona", "adhesivo", "sellante", "espuma", "montaje"]):
+        return "Adhesivos y Sellantes"
+    return "Otros"
+
+
+def _extraer_tienda(p: Optional[ProductoProveedor]) -> dict:
+    """Extrae datos de un producto de proveedor para la respuesta."""
+    if not p:
+        return {"precio": None, "nombre": None, "imagen": None, "sku": None, "url": None}
+    return {
+        "precio": p.precio_oferta or p.precio_clp,
+        "nombre": p.nombre_raw,
+        "imagen": str(p.imagen_url) if p.imagen_url else None,
+        "sku": p.sku_proveedor,
+        "url": str(p.url_producto) if p.url_producto else None,
+    }
+
+
 def obtener_catalogo(db: Session) -> list[dict]:
     """
-    Retorna TODOS los productos de la BD agrupados por canonical.
-    Cada grupo = 1 producto con sus variantes en distintas tiendas.
+    Retorna el catálogo agrupado por FAMILIA para el frontend.
+
+    Formato de salida:
+    [
+      {
+        "familia": "Tornillos",
+        "color": "#6366f1",
+        "variantes": [
+          {
+            "query": "tornillo autoperforante 1 pulgada",
+            "nombre": "Tornillo autoperforante 1 pulgada",
+            "precio_sodimac": 2490, "precio_easy": 2190,
+            "imagen_sodimac": "...", "imagen_easy": "...",
+            ...
+          },
+          ...
+        ]
+      },
+      ...
+    ]
     """
-    # Cargar todos los canonicals que tienen al menos 1 variante disponible
+    # Cargar todos los canonicals con sus variantes
     canonicals = (
         db.query(ProductoCanonical)
         .options(joinedload(ProductoCanonical.variantes))
         .all()
     )
 
-    resultado = []
+    # Paso 1: construir lista plana de productos canónicos
+    productos_planos = []
 
     for canon in canonicals:
         variantes_activas = [
@@ -106,7 +172,7 @@ def obtener_catalogo(db: Session) -> list[dict]:
         if not variantes_activas:
             continue
 
-        # Agrupar por proveedor — quedarse con el mas reciente de cada uno
+        # Más reciente por proveedor
         por_prov: dict[str, ProductoProveedor] = {}
         for v in variantes_activas:
             existente = por_prov.get(v.proveedor)
@@ -116,20 +182,8 @@ def obtener_catalogo(db: Session) -> list[dict]:
         sodimac = por_prov.get(NombreProveedor.SODIMAC)
         easy = por_prov.get(NombreProveedor.EASY)
 
-        # Precio y datos de cada tienda
-        def _extraer(p):
-            if not p:
-                return {"precio": None, "nombre": None, "imagen": None, "sku": None, "url": None}
-            return {
-                "precio": p.precio_oferta or p.precio_clp,
-                "nombre": p.nombre_raw,
-                "imagen": str(p.imagen_url) if p.imagen_url else None,
-                "sku": p.sku_proveedor,
-                "url": str(p.url_producto) if p.url_producto else None,
-            }
-
-        sod = _extraer(sodimac)
-        eas = _extraer(easy)
+        sod = _extraer_tienda(sodimac)
+        eas = _extraer_tienda(easy)
 
         # Determinar mejor precio
         mejor_precio = None
@@ -146,21 +200,23 @@ def obtener_catalogo(db: Session) -> list[dict]:
         elif eas["precio"] is not None:
             mejor_precio, mejor_tienda = eas["precio"], "Easy"
 
-        # Timestamp mas reciente
+        # Timestamp más reciente
         timestamps = [v.scraped_at for v in variantes_activas if v.scraped_at]
         ultimo = max(timestamps).isoformat() if timestamps else None
 
-        # Imagen principal (preferir la de la tienda con mejor precio)
-        imagen_principal = None
-        if mejor_tienda == "Sodimac":
-            imagen_principal = sod["imagen"] or eas["imagen"]
-        else:
-            imagen_principal = eas["imagen"] or sod["imagen"]
+        # Familia: usar categoria del canonical, o inferir del nombre
+        familia = canon.categoria or _inferir_familia(canon.nombre_normalizado)
 
-        resultado.append({
+        # Actualizar la categoria en BD si estaba vacía
+        if not canon.categoria and familia != "Otros":
+            canon.categoria = familia
+            db.add(canon)
+
+        productos_planos.append({
             "id": canon.id,
+            "query": canon.nombre_normalizado,
             "nombre": canon.nombre_normalizado,
-            "categoria": canon.categoria,
+            "familia": familia,
             # Sodimac
             "precio_sodimac": sod["precio"],
             "nombre_sodimac": sod["nombre"],
@@ -177,39 +233,69 @@ def obtener_catalogo(db: Session) -> list[dict]:
             "mejor_precio": mejor_precio,
             "mejor_tienda": mejor_tienda,
             "ahorro": ahorro,
-            "imagen": imagen_principal,
             "scraped_at": ultimo,
             "n_tiendas": sum(1 for x in [sod["precio"], eas["precio"]] if x is not None),
         })
 
-    # Ordenar: primero los que tienen precio en ambas tiendas, luego por nombre
-    resultado.sort(key=lambda x: (-x["n_tiendas"], x["nombre"].lower()))
+    # Commit categorias actualizadas
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    # Paso 2: agrupar por familia
+    por_familia: dict[str, list[dict]] = {}
+    for p in productos_planos:
+        por_familia.setdefault(p["familia"], []).append(p)
+
+    # Paso 3: construir respuesta agrupada
+    resultado = []
+    for familia_nombre, variantes in por_familia.items():
+        cfg = FAMILIAS_CONFIG.get(familia_nombre, {"color": "#94a3b8", "icon": "📦"})
+        # Ordenar variantes: primero los que tienen ambas tiendas
+        variantes.sort(key=lambda x: (-x["n_tiendas"], x["nombre"].lower()))
+        resultado.append({
+            "familia": familia_nombre,
+            "color": cfg["color"],
+            "icon": cfg["icon"],
+            "variantes": variantes,
+        })
+
+    # Ordenar familias: por cantidad de variantes (más primero)
+    resultado.sort(key=lambda x: -len(x["variantes"]))
 
     return resultado
 
 
 def buscar_en_catalogo(db: Session, texto: str, limite: int = 50) -> list[dict]:
     """
-    Busca productos en la BD por texto (LIKE en nombre).
-    Retorna en el mismo formato que obtener_catalogo pero filtrado.
+    Busca productos en la BD por texto.
+    Retorna en el mismo formato agrupado que obtener_catalogo pero filtrado.
     """
     texto_limpio = texto.strip().lower()
     if not texto_limpio:
         return obtener_catalogo(db)
 
-    # Buscar canonicals cuyo nombre contenga el texto
-    todos = obtener_catalogo(db)
+    catalogo = obtener_catalogo(db)
 
-    # Filtrar por coincidencia en cualquiera de los nombres
-    filtrados = []
-    for p in todos:
-        nombres = " ".join(filter(None, [
-            p["nombre"], p["nombre_sodimac"], p["nombre_easy"],
-        ])).lower()
-        if texto_limpio in nombres:
-            filtrados.append(p)
+    # Filtrar variantes dentro de cada familia
+    resultado = []
+    for familia_grupo in catalogo:
+        variantes_filtradas = []
+        for v in familia_grupo["variantes"]:
+            nombres = " ".join(filter(None, [
+                v.get("nombre", ""), v.get("nombre_sodimac", ""), v.get("nombre_easy", ""),
+            ])).lower()
+            if texto_limpio in nombres:
+                variantes_filtradas.append(v)
 
-    return filtrados[:limite]
+        if variantes_filtradas:
+            resultado.append({
+                **familia_grupo,
+                "variantes": variantes_filtradas[:limite],
+            })
+
+    return resultado
 
 
 # ---------------------------------------------------------------------------
@@ -237,8 +323,10 @@ async def sync_catalogo(db: Session, max_resultados: int = 5) -> dict:
     print(f"  SYNC CATALOGO - {total_queries} queries")
     print(f"{'='*60}\n")
 
-    for i, query in enumerate(QUERIES_SYNC, 1):
-        print(f"\n  [{i}/{total_queries}] '{query}'")
+    for i, query_info in enumerate(QUERIES_SYNC, 1):
+        query = query_info["query"]
+        familia = query_info["familia"]
+        print(f"\n  [{i}/{total_queries}] '{query}' ({familia})")
 
         try:
             # 1) Scrapear
@@ -269,6 +357,11 @@ async def sync_catalogo(db: Session, max_resultados: int = 5) -> dict:
                 )
                 if canonical:
                     canonicals_creados += 1
+                    # Asignar categoría/familia al canonical
+                    if not canonical.categoria:
+                        canonical.categoria = familia
+                        db.add(canonical)
+                        db.commit()
                     print(f"     Canonical: '{canonical.nombre_normalizado}' (id={canonical.id})")
             except Exception as exc:
                 logger.warning("Error en canonical para '%s': %s", query, exc)

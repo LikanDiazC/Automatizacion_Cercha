@@ -24,8 +24,10 @@ from modulos.ordenes import models as ordenes_models  # noqa: F401
 from modulos.inventario import router as inventario_router
 from modulos.mrp import router as mrp_router
 from modulos.ordenes import router as ordenes_router
-from modulos.compras import models as compras_models
+from modulos.compras import models as compras_models  # noqa: F401
 from modulos.compras.router import router as compras_router
+from modulos.crm import models as crm_models  # noqa: F401
+from modulos.crm.router import router as crm_router
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +48,29 @@ async def lifespan(app: FastAPI):
         logger.warning("Admin credentials not configured — admin endpoints disabled.")
 
     Base.metadata.create_all(bind=engine)
+
+    # Iniciar scheduler de sync de precios en segundo plano
+    try:
+        from core.scheduler import iniciar_scheduler
+        iniciar_scheduler(
+            intervalo_horas=settings.sync_intervalo_horas,
+            hora_inicio=settings.sync_hora_inicio,
+            habilitado=settings.sync_habilitado,
+        )
+        logger.info("Scheduler de sync de precios iniciado")
+    except ImportError:
+        logger.warning("APScheduler no instalado — sync automático deshabilitado")
+    except Exception as exc:
+        logger.warning("No se pudo iniciar el scheduler: %s", exc)
+
     yield
+
+    # Detener scheduler al cerrar la app
+    try:
+        from core.scheduler import detener_scheduler
+        detener_scheduler()
+    except Exception:
+        pass
 
 
 app = FastAPI(
@@ -92,6 +116,7 @@ app.include_router(inventario_router.router)
 app.include_router(mrp_router.router)
 app.include_router(ordenes_router.router)
 app.include_router(compras_router)
+app.include_router(crm_router)
 
 
 # Información mínima — sin revelar el stack tecnológico completo

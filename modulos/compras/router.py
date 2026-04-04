@@ -2,6 +2,7 @@
 Router FastAPI — Módulo de Compras Inteligentes.
 """
 
+import json as _json
 import logging
 import secrets
 import asyncio
@@ -16,6 +17,7 @@ from core.database import get_db, SessionLocal
 from .models import (
     ProductoProveedor,
     ProductoCanonical,
+    ComparacionPrecios,
     CarritoCompras,
     ItemCarrito,
     EstadoCarrito,
@@ -542,12 +544,11 @@ def estado_catalogo(db: Session = Depends(get_db)):
 )
 async def sincronizar_catalogo(
     request: Request,
-    background: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
     """
     Lanza el scraping de TODAS las variantes del catalogo.
-    Esto toma varios minutos — se ejecuta en background.
+    Esto toma varios minutos — se ejecuta en background via asyncio.create_task.
     """
     from .catalogo import sync_catalogo
 
@@ -561,7 +562,8 @@ async def sincronizar_catalogo(
         finally:
             db_bg.close()
 
-    background.add_task(asyncio.ensure_future, _sync_en_background())
+    # create_task corre en el event loop principal de asyncio — no en un thread
+    asyncio.create_task(_sync_en_background())
     return {"status": "sync_iniciado", "mensaje": "Sincronizacion del catalogo iniciada en background"}
 
 
@@ -626,6 +628,431 @@ def leer_dump_scraper(filename: str):
         raise HTTPException(status_code=404, detail="Dump no encontrado.")
     with open(filepath, "r", encoding="utf-8") as f:
         return _json.load(f)
+
+
+# ---------------------------------------------------------------------------
+# Endpoints: Historial de precios (estilo SoloTodo)
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/precios/historial/{canonical_id}",
+    summary="Historial de precios de un producto canónico",
+)
+def historial_precios(canonical_id: int, dias: int = 30, db: Session = Depends(get_db)):
+    """
+    Retorna el historial de precios de todas las variantes de un canonical.
+    Útil para gráficos de evolución de precios estilo SoloTodo.
+    """
+    from datetime import timedelta
+    from .models import HistorialPrecios
+
+    limite = datetime.utcnow() - timedelta(days=dias)
+
+    registros = (
+        db.query(HistorialPrecios)
+        .join(ProductoProveedor)
+        .filter(
+            HistorialPrecios.canonical_id == canonical_id,
+            HistorialPrecios.registrado_at >= limite,
+        )
+        .order_by(HistorialPrecios.registrado_at.asc())
+        .all()
+    )
+
+    # Agrupar por proveedor
+    por_proveedor: dict[str, list] = {}
+    for r in registros:
+        prov = r.producto.proveedor.value if r.producto else "desconocido"
+        por_proveedor.setdefault(prov, []).append({
+            "fecha": r.registrado_at.isoformat(),
+            "precio_normal": r.precio_normal,
+            "precio_oferta": r.precio_oferta,
+            "disponible": r.disponible,
+        })
+
+    return {
+        "canonical_id": canonical_id,
+        "dias": dias,
+        "series": por_proveedor,
+    }
+
+
+@router.get(
+    "/precios/alertas",
+    summary="Productos con mayor caída de precio reciente",
+)
+def alertas_precios(limite: int = 10, db: Session = Depends(get_db)):
+    """
+    Retorna los productos cuyo precio bajó más respecto al registro anterior.
+    Útil para un dashboard de oportunidades.
+    """
+    from .models import HistorialPrecios
+    from sqlalchemy import desc
+
+    # Obtener los últimos 2 registros por producto
+    subquery = (
+        db.query(
+            HistorialPrecios.producto_id,
+            HistorialPrecios.precio_normal,
+            HistorialPrecios.registrado_at,
+        )
+        .order_by(HistorialPrecios.producto_id, desc(HistorialPrecios.registrado_at))
+        .all()
+    )
+
+    # Agrupar por producto y calcular cambio
+    por_producto: dict[int, list] = {}
+    for prod_id, precio, fecha in subquery:
+        por_producto.setdefault(prod_id, []).append({"precio": precio, "fecha": fecha})
+
+    alertas = []
+    for prod_id, registros_list in por_producto.items():
+        if len(registros_list) < 2:
+            continue
+        actual = registros_list[0]["precio"]
+        anterior = registros_list[1]["precio"]
+        if anterior > 0 and actual < anterior:
+            cambio_pct = ((actual - anterior) / anterior) * 100
+            producto = db.query(ProductoProveedor).get(prod_id)
+            if producto:
+                alertas.append({
+                    "producto_id": prod_id,
+                    "nombre": producto.nombre_raw,
+                    "proveedor": producto.proveedor.value,
+                    "precio_anterior": anterior,
+                    "precio_actual": actual,
+                    "cambio_pct": round(cambio_pct, 1),
+                    "canonical_id": producto.canonical_id,
+                })
+
+    alertas.sort(key=lambda x: x["cambio_pct"])
+    return alertas[:limite]
+
+
+@router.get(
+    "/scheduler/estado",
+    summary="Estado del scheduler de sync automático",
+)
+def estado_scheduler():
+    """Retorna el estado del scheduler y el último sync."""
+    try:
+        from core.scheduler import get_scheduler, get_ultimo_sync
+        scheduler = get_scheduler()
+        return {
+            "scheduler_activo": scheduler is not None and scheduler.running if scheduler else False,
+            "ultimo_sync": get_ultimo_sync(),
+            "jobs": [
+                {"id": job.id, "name": job.name, "next_run": str(job.next_run_time)}
+                for job in (scheduler.get_jobs() if scheduler else [])
+            ],
+        }
+    except ImportError:
+        return {"scheduler_activo": False, "error": "APScheduler no instalado"}
+
+
+# ---------------------------------------------------------------------------
+# Endpoints: Admin — Diagnóstico de Comparaciones IA
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/admin/comparaciones",
+    summary="Listar todas las comparaciones IA con detalle completo",
+)
+def listar_comparaciones(
+    limite: int = 100,
+    offset: int = 0,
+    solo_matches: Optional[bool] = None,
+    metodo: Optional[str] = None,
+    min_confidence: Optional[float] = None,
+    max_confidence: Optional[float] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Dashboard administrativo de comparaciones.
+    Permite filtrar por método, confidence, y si fue match o no.
+    """
+    import json as _json
+
+    query = db.query(ComparacionPrecios).order_by(ComparacionPrecios.calculado_at.desc())
+
+    if min_confidence is not None:
+        query = query.filter(ComparacionPrecios.confidence_score >= min_confidence)
+    if max_confidence is not None:
+        query = query.filter(ComparacionPrecios.confidence_score <= max_confidence)
+
+    total = query.count()
+    comparaciones = query.offset(offset).limit(limite).all()
+
+    resultados = []
+    for c in comparaciones:
+        prod_a = db.query(ProductoProveedor).get(c.producto_a_id)
+        prod_b = db.query(ProductoProveedor).get(c.producto_b_id)
+
+        # Parsear razon_ia JSON
+        razon_data = {}
+        if c.razon_ia:
+            try:
+                razon_data = _json.loads(c.razon_ia)
+            except _json.JSONDecodeError:
+                razon_data = {"razon": c.razon_ia}
+
+        metodo_usado = razon_data.get("metodo", "desconocido")
+
+        # Filtrar por método si se pide
+        if metodo and metodo_usado != metodo:
+            continue
+
+        # Filtrar por matches
+        es_match = c.confidence_score >= 0.40
+        if solo_matches is True and not es_match:
+            continue
+        if solo_matches is False and es_match:
+            continue
+
+        item = {
+            "id": c.id,
+            "calculado_at": c.calculado_at.isoformat() if c.calculado_at else None,
+            "confidence_score": c.confidence_score,
+            "precio_diff_pct": c.precio_diff_pct,
+            "precio_minimo": c.precio_minimo,
+            "proveedor_minimo": c.proveedor_minimo.value if c.proveedor_minimo else None,
+            "es_match": es_match,
+            "metodo": metodo_usado,
+            "razon": razon_data.get("razon", ""),
+            "canonical_id": c.canonical_id,
+            "producto_a": {
+                "id": prod_a.id,
+                "nombre": prod_a.nombre_raw,
+                "proveedor": prod_a.proveedor.value,
+                "precio": prod_a.precio_clp,
+                "precio_oferta": prod_a.precio_oferta,
+                "unidad": prod_a.unidad,
+                "sku": prod_a.sku_proveedor,
+                "imagen_url": prod_a.imagen_url,
+                "url": prod_a.url_producto,
+                "tiene_embedding": bool(prod_a.embedding_json),
+            } if prod_a else None,
+            "producto_b": {
+                "id": prod_b.id,
+                "nombre": prod_b.nombre_raw,
+                "proveedor": prod_b.proveedor.value,
+                "precio": prod_b.precio_clp,
+                "precio_oferta": prod_b.precio_oferta,
+                "unidad": prod_b.unidad,
+                "sku": prod_b.sku_proveedor,
+                "imagen_url": prod_b.imagen_url,
+                "url": prod_b.url_producto,
+                "tiene_embedding": bool(prod_b.embedding_json),
+            } if prod_b else None,
+        }
+        resultados.append(item)
+
+    return {
+        "total": total,
+        "offset": offset,
+        "limite": limite,
+        "comparaciones": resultados,
+    }
+
+
+@router.get(
+    "/admin/comparaciones/stats",
+    summary="Estadísticas globales de las comparaciones IA",
+)
+def stats_comparaciones(db: Session = Depends(get_db)):
+    """Resumen general para el dashboard admin."""
+    import json as _json
+    from sqlalchemy import func
+
+    total = db.query(ComparacionPrecios).count()
+    total_productos = db.query(ProductoProveedor).count()
+    total_canonicals = db.query(ProductoCanonical).count()
+    productos_con_embedding = db.query(ProductoProveedor).filter(
+        ProductoProveedor.embedding_json.isnot(None)
+    ).count()
+
+    # Distribución de confidence
+    rangos = {
+        "alta_0.9_1.0": db.query(ComparacionPrecios).filter(
+            ComparacionPrecios.confidence_score >= 0.9
+        ).count(),
+        "media_0.6_0.9": db.query(ComparacionPrecios).filter(
+            ComparacionPrecios.confidence_score >= 0.6,
+            ComparacionPrecios.confidence_score < 0.9,
+        ).count(),
+        "baja_0.3_0.6": db.query(ComparacionPrecios).filter(
+            ComparacionPrecios.confidence_score >= 0.3,
+            ComparacionPrecios.confidence_score < 0.6,
+        ).count(),
+        "rechazo_0_0.3": db.query(ComparacionPrecios).filter(
+            ComparacionPrecios.confidence_score < 0.3,
+        ).count(),
+    }
+
+    # Distribución por método
+    all_comparaciones = db.query(ComparacionPrecios).all()
+    metodos: dict[str, int] = {}
+    for c in all_comparaciones:
+        if c.razon_ia:
+            try:
+                data = _json.loads(c.razon_ia)
+                m = data.get("metodo", "desconocido")
+            except _json.JSONDecodeError:
+                m = "desconocido"
+        else:
+            m = "desconocido"
+        metodos[m] = metodos.get(m, 0) + 1
+
+    # Productos sin canonical
+    sin_canonical = db.query(ProductoProveedor).filter(
+        ProductoProveedor.canonical_id.is_(None)
+    ).count()
+
+    return {
+        "total_comparaciones": total,
+        "total_productos": total_productos,
+        "total_canonicals": total_canonicals,
+        "productos_con_embedding": productos_con_embedding,
+        "productos_sin_embedding": total_productos - productos_con_embedding,
+        "productos_sin_canonical": sin_canonical,
+        "distribucion_confidence": rangos,
+        "distribucion_metodos": metodos,
+    }
+
+
+@router.get(
+    "/admin/productos",
+    summary="Listar productos con info de embeddings y canonicals",
+)
+def listar_productos_admin(
+    limite: int = 100,
+    offset: int = 0,
+    proveedor: Optional[str] = None,
+    sin_canonical: bool = False,
+    sin_embedding: bool = False,
+    db: Session = Depends(get_db),
+):
+    """Lista de productos con metadata técnica para el admin."""
+    query = db.query(ProductoProveedor).order_by(ProductoProveedor.scraped_at.desc())
+
+    if proveedor:
+        query = query.filter(ProductoProveedor.proveedor == proveedor)
+    if sin_canonical:
+        query = query.filter(ProductoProveedor.canonical_id.is_(None))
+    if sin_embedding:
+        query = query.filter(ProductoProveedor.embedding_json.is_(None))
+
+    total = query.count()
+    productos = query.offset(offset).limit(limite).all()
+
+    return {
+        "total": total,
+        "productos": [{
+            "id": p.id,
+            "nombre": p.nombre_raw,
+            "proveedor": p.proveedor.value,
+            "sku": p.sku_proveedor,
+            "precio": p.precio_clp,
+            "precio_oferta": p.precio_oferta,
+            "unidad": p.unidad,
+            "imagen_url": p.imagen_url,
+            "url": p.url_producto,
+            "canonical_id": p.canonical_id,
+            "canonical_nombre": p.canonical.nombre_normalizado if p.canonical else None,
+            "tiene_embedding": bool(p.embedding_json),
+            "embedding_dim": len(_json_loads_safe(p.embedding_json)) if p.embedding_json else 0,
+            "scraped_at": p.scraped_at.isoformat() if p.scraped_at else None,
+            "estado_scraping": p.estado_scraping.value if p.estado_scraping else None,
+        } for p in productos],
+    }
+
+
+@router.get(
+    "/admin/embedding/{producto_id}",
+    summary="Ver el embedding completo de un producto (para visualización)",
+)
+def ver_embedding(producto_id: int, db: Session = Depends(get_db)):
+    """Retorna el vector de embedding para diagnóstico/visualización."""
+    import json as _json
+
+    producto = db.query(ProductoProveedor).get(producto_id)
+    if not producto:
+        raise HTTPException(status_code=404, detail="Producto no encontrado.")
+
+    vector = None
+    dim = 0
+    stats = {}
+    if producto.embedding_json:
+        vector = _json.loads(producto.embedding_json)
+        dim = len(vector)
+        import math
+        vals = [abs(v) for v in vector]
+        stats = {
+            "dimension": dim,
+            "min": round(min(vector), 6),
+            "max": round(max(vector), 6),
+            "mean": round(sum(vector) / dim, 6),
+            "magnitude": round(math.sqrt(sum(v*v for v in vector)), 4),
+            "nonzero": sum(1 for v in vector if abs(v) > 1e-8),
+        }
+
+    return {
+        "producto_id": producto_id,
+        "nombre": producto.nombre_raw,
+        "proveedor": producto.proveedor.value,
+        "texto_embedding": f"{producto.nombre_raw} | Marca: {producto.marca or ''} | Unidad: {producto.unidad or ''} | Proveedor: {producto.proveedor}",
+        "tiene_embedding": bool(vector),
+        "stats": stats,
+        # Solo enviar los primeros 50 valores para no sobrecargar el frontend
+        "vector_preview": vector[:50] if vector else [],
+        "vector_full_length": dim,
+    }
+
+
+@router.post(
+    "/admin/re-comparar/{comparacion_id}",
+    summary="Re-ejecutar una comparación específica con el matcher mejorado",
+)
+async def re_comparar(comparacion_id: int, db: Session = Depends(get_db)):
+    """Re-ejecuta el matching IA para una comparación existente."""
+    comp = db.query(ComparacionPrecios).get(comparacion_id)
+    if not comp:
+        raise HTTPException(status_code=404, detail="Comparación no encontrada.")
+
+    prod_a = db.query(ProductoProveedor).get(comp.producto_a_id)
+    prod_b = db.query(ProductoProveedor).get(comp.producto_b_id)
+    if not prod_a or not prod_b:
+        raise HTTPException(status_code=404, detail="Productos de la comparación no encontrados.")
+
+    try:
+        resultado = await comparar_productos(prod_a, prod_b, db, query_original="")
+        return {
+            "comparacion_id": comparacion_id,
+            "resultado_anterior": {
+                "confidence": comp.confidence_score,
+                "razon": comp.razon_ia,
+            },
+            "resultado_nuevo": {
+                "es_match": resultado.es_mismo_producto,
+                "confidence": resultado.confidence_score,
+                "similitud_coseno": resultado.similitud_coseno,
+                "metodo": resultado.metodo,
+                "razon": resultado.razon,
+            },
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error al re-comparar: {exc}")
+
+
+def _json_loads_safe(s: Optional[str]) -> list:
+    """JSON parse seguro que retorna lista vacía si falla."""
+    if not s:
+        return []
+    try:
+        import json as _json
+        return _json.loads(s)
+    except Exception:
+        return []
 
 
 def _precio_de_proveedor(canonical_id: int, proveedor: NombreProveedor, db: Session) -> Optional[float]:

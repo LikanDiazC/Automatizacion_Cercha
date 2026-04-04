@@ -12,3 +12,4 @@ lxml
 camoufox[geoip]
 curl_cffi
 slowapi>=0.1.9
+apscheduler>=3.10.0

@@ -39,6 +39,20 @@ class Settings(BaseSettings):
     default_page_size:  int = 100
     max_page_size:      int = 500
 
+    # Scheduler de sync de precios
+    sync_intervalo_horas: int = 6
+    sync_hora_inicio:     int = 7
+    sync_habilitado:      bool = True
+
+    # SMTP — Email service
+    smtp_host:      str = ""
+    smtp_port:      int = 587
+    smtp_user:      str = ""
+    smtp_password:  str = ""
+    smtp_from_name: str = "Cercha ERP"
+    smtp_use_tls:   bool = True
+    app_base_url:   str = "http://localhost:8000"
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

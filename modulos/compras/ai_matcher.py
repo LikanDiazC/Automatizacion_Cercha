@@ -138,8 +138,73 @@ def _construir_texto_matching(producto: ProductoProveedor) -> str:
     partes = [
         producto.nombre_raw,
         f"marca {producto.marca}" if producto.marca else "",
+        f"unidad {producto.unidad}" if producto.unidad else "",
     ]
     return " ".join(p for p in partes if p).strip()
+
+
+def _detectar_unidad_incompatible(producto_a: ProductoProveedor, producto_b: ProductoProveedor) -> Optional[str]:
+    """
+    Detecta si dos productos tienen unidades de venta claramente incompatibles.
+    Retorna una explicación si son incompatibles, None si son compatibles o no se puede determinar.
+    """
+    # Patrones que indican pack/bulk vs unitario
+    PATRONES_BULK = re.compile(
+        r'(?:pack|caja|bolsa|rollo|paquete|saco)\s*(?:de\s*)?(\d+)|'
+        r'x\s*(\d+)|'
+        r'(\d+)\s*(?:un(?:idades?)?|pzas?|piezas)',
+        re.IGNORECASE,
+    )
+
+    nombre_a = (producto_a.nombre_raw or "").lower()
+    nombre_b = (producto_b.nombre_raw or "").lower()
+    unidad_a = (producto_a.unidad or "").lower()
+    unidad_b = (producto_b.unidad or "").lower()
+
+    # Extraer cantidades de bulk
+    def _extraer_cantidad(nombre: str, unidad: str) -> Optional[int]:
+        for m in PATRONES_BULK.finditer(nombre):
+            for g in m.groups():
+                if g:
+                    return int(g)
+        for m in PATRONES_BULK.finditer(unidad):
+            for g in m.groups():
+                if g:
+                    return int(g)
+        return None
+
+    cant_a = _extraer_cantidad(nombre_a, unidad_a)
+    cant_b = _extraer_cantidad(nombre_b, unidad_b)
+
+    # Si uno tiene cantidad bulk y el otro no, son incompatibles
+    if cant_a and not cant_b and cant_a > 1:
+        return f"Producto A es pack de {cant_a}, Producto B parece unitario"
+    if cant_b and not cant_a and cant_b > 1:
+        return f"Producto B es pack de {cant_b}, Producto A parece unitario"
+    if cant_a and cant_b and cant_a != cant_b:
+        return f"Cantidades diferentes: A={cant_a} vs B={cant_b}"
+
+    # Detectar kg vs unidad
+    kg_patterns = re.compile(r'\d+\s*kg', re.IGNORECASE)
+    a_es_kg = bool(kg_patterns.search(nombre_a) or "kg" in unidad_a)
+    b_es_kg = bool(kg_patterns.search(nombre_b) or "kg" in unidad_b)
+    a_es_un = "unidad" in unidad_a or "un" == unidad_a.strip()
+    b_es_un = "unidad" in unidad_b or "un" == unidad_b.strip()
+
+    if a_es_kg and b_es_un:
+        return "Producto A se vende por kg, Producto B por unidad"
+    if b_es_kg and a_es_un:
+        return "Producto B se vende por kg, Producto A por unidad"
+
+    # Ratio de precios como señal adicional
+    precio_a = producto_a.precio_oferta or producto_a.precio_clp or 0
+    precio_b = producto_b.precio_oferta or producto_b.precio_clp or 0
+    if precio_a > 0 and precio_b > 0:
+        ratio = max(precio_a, precio_b) / min(precio_a, precio_b)
+        if ratio > 10:
+            return f"Ratio de precios muy alto ({ratio:.0f}x) — probablemente unidades diferentes"
+
+    return None
 
 
 def comparar_textualmente(
@@ -147,9 +212,20 @@ def comparar_textualmente(
     producto_b: ProductoProveedor,
 ) -> MatchResult:
     """
-    Matching sin API: usa similitud Jaccard + bigramas.
+    Matching sin API: usa similitud Jaccard + bigramas + detección de unidades.
     Adecuado para desarrollo y demos sin API key de OpenAI.
     """
+    # Verificar incompatibilidad de unidades ANTES de la similitud textual
+    unidad_incompat = _detectar_unidad_incompatible(producto_a, producto_b)
+    if unidad_incompat:
+        return MatchResult(
+            es_mismo_producto=False,
+            confidence_score=0.0,
+            similitud_coseno=0.0,
+            razon=f"Unidades incompatibles: {unidad_incompat}",
+            metodo="unidad_rechazo",
+        )
+
     texto_a = _construir_texto_matching(producto_a)
     texto_b = _construir_texto_matching(producto_b)
     sim = similitud_textual(texto_a, texto_b)
@@ -283,30 +359,50 @@ def buscar_por_similitud(
 
 PROMPT_SISTEMA = """
 Eres un experto en materiales de construcción y ferretería chilena.
-Tienes DOS tareas en orden:
+Tu trabajo es determinar si dos productos de distintas tiendas son EXACTAMENTE el mismo artículo,
+de forma que un comprador pueda elegir entre ambos como alternativas equivalentes.
+
+Tienes TRES tareas en orden:
 
 1. RELEVANCIA: ¿Cada producto corresponde a lo que el usuario buscó?
    Si alguno de los dos NO es relevante al término de búsqueda,
    responde es_mismo_producto=false y confidence_score=0.0.
 
-2. EQUIVALENCIA: Solo si AMBOS son relevantes, determina si son
-   EXACTAMENTE el mismo artículo (equivalentes para compra).
+2. UNIDAD Y CANTIDAD (CRÍTICO — la causa #1 de errores):
+   Analiza CUIDADOSAMENTE la unidad de venta de cada producto:
+   - "Pack 100 unidades" vs "1 unidad" → NO son el mismo producto
+   - "Caja x 50" vs "unidad" → NO son el mismo producto
+   - "1 kg" vs "1 unidad" → NO son el mismo producto
+   - "Bolsa 25 kg" vs "Bolsa 1 kg" → NO son el mismo producto
+   - "Metro lineal" vs "Rollo 25 m" → NO son el mismo producto
 
-Analiza CON DETALLE:
-  - Nombre y descripción
-  - Marca y modelo
-  - Medidas, dimensiones y unidades (un tornillo 1/4\" NO es igual a uno 3/8\")
-  - Material y acabado
-  - Cantidad en el envase
+   PISTAS para detectar la unidad de venta:
+   - Busca en el nombre: "pack", "caja", "bolsa", "rollo", "x100", "x50", etc.
+   - El campo "Unidad" te dice cómo se vende (un, pack, kg, m, etc.)
+   - Si el precio de un producto es 50x mayor que el otro para el mismo artículo,
+     probablemente uno es pack/caja y el otro es unitario.
+
+   Si las unidades NO son equivalentes → es_mismo_producto=false SIEMPRE,
+   incluso si el producto base es idéntico.
+
+3. EQUIVALENCIA: Solo si AMBOS son relevantes Y tienen la misma unidad de venta,
+   determina si son EXACTAMENTE el mismo artículo:
+   - Nombre y descripción
+   - Marca y modelo
+   - Medidas y dimensiones (un tornillo 1/4\" NO es igual a uno 3/8\")
+   - Material y acabado (zincado ≠ pavonado ≠ acero inoxidable)
 
 Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional:
 {
   "es_mismo_producto": true | false,
   "confidence_score": 0.0 a 1.0,
   "razon": "Explicación breve (máx 100 palabras)",
-  "diferencias_criticas": [],
+  "diferencias_criticas": ["lista de diferencias encontradas"],
   "producto_a_relevante": true | false,
-  "producto_b_relevante": true | false
+  "producto_b_relevante": true | false,
+  "unidad_a": "unidad de venta detectada para producto A",
+  "unidad_b": "unidad de venta detectada para producto B",
+  "unidades_compatibles": true | false
 }
 """.strip()
 
@@ -317,21 +413,35 @@ async def evaluar_con_llm(
     query_original: str = "",
 ) -> dict:
     bloque_query = f"\nBÚSQUEDA DEL USUARIO: \"{query_original}\"\n\n" if query_original else "\n"
+
+    # Detectar ratio de precios para dar pista a la IA sobre posible diferencia de unidades
+    precio_a = producto_a.precio_oferta or producto_a.precio_clp or 0
+    precio_b = producto_b.precio_oferta or producto_b.precio_clp or 0
+    ratio_precio = ""
+    if precio_a > 0 and precio_b > 0:
+        ratio = max(precio_a, precio_b) / min(precio_a, precio_b)
+        if ratio > 5:
+            ratio_precio = f"\n⚠️ ALERTA: El ratio de precios es {ratio:.1f}x — esto sugiere fuertemente que las unidades de venta son DIFERENTES (pack vs unitario, kg vs unidad, etc.). Verifica con cuidado.\n"
+
     contenido: list[dict] = [{
         "type": "text",
         "text": f"""{bloque_query}PRODUCTO A ({producto_a.proveedor}):
-  Nombre: {producto_a.nombre_raw}
-  Marca:  {producto_a.marca or 'No especificada'}
-  Precio: ${producto_a.precio_clp:,.0f} CLP
-  SKU:    {producto_a.sku_proveedor}
+  Nombre:  {producto_a.nombre_raw}
+  Marca:   {producto_a.marca or 'No especificada'}
+  Precio:  ${producto_a.precio_clp:,.0f} CLP{f' (oferta: ${producto_a.precio_oferta:,.0f})' if producto_a.precio_oferta else ''}
+  Unidad:  {producto_a.unidad or 'No especificada'}
+  SKU:     {producto_a.sku_proveedor}
+  URL:     {producto_a.url_producto or 'No disponible'}
 
 PRODUCTO B ({producto_b.proveedor}):
-  Nombre: {producto_b.nombre_raw}
-  Marca:  {producto_b.marca or 'No especificada'}
-  Precio: ${producto_b.precio_clp:,.0f} CLP
-  SKU:    {producto_b.sku_proveedor}
-
-¿Son exactamente el mismo producto?
+  Nombre:  {producto_b.nombre_raw}
+  Marca:   {producto_b.marca or 'No especificada'}
+  Precio:  ${producto_b.precio_clp:,.0f} CLP{f' (oferta: ${producto_b.precio_oferta:,.0f})' if producto_b.precio_oferta else ''}
+  Unidad:  {producto_b.unidad or 'No especificada'}
+  SKU:     {producto_b.sku_proveedor}
+  URL:     {producto_b.url_producto or 'No disponible'}
+{ratio_precio}
+¿Son exactamente el mismo producto con la misma unidad de venta?
 """.strip(),
     }]
 
@@ -475,6 +585,23 @@ async def comparar_productos(
             producto_a.sku_proveedor, producto_b.sku_proveedor,
         )
         resultado = comparar_textualmente(producto_a, producto_b)
+        _guardar_comparacion(producto_a, producto_b, resultado, db)
+        return resultado
+
+    # ── Detección rápida de unidades incompatibles (aplica en ambos modos) ─
+    unidad_incompat = _detectar_unidad_incompatible(producto_a, producto_b)
+    if unidad_incompat:
+        logger.info(
+            "Unidades incompatibles detectadas (%s vs %s): %s",
+            producto_a.sku_proveedor, producto_b.sku_proveedor, unidad_incompat,
+        )
+        resultado = MatchResult(
+            es_mismo_producto=False,
+            confidence_score=0.0,
+            similitud_coseno=0.0,
+            razon=f"Unidades incompatibles: {unidad_incompat}",
+            metodo="unidad_rechazo",
+        )
         _guardar_comparacion(producto_a, producto_b, resultado, db)
         return resultado
 
