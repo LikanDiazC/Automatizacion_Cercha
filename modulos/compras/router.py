@@ -18,6 +18,8 @@ from .models import (
     ProductoProveedor,
     ProductoCanonical,
     ComparacionPrecios,
+    AICallLog,
+    PromptVersion,
     CarritoCompras,
     ItemCarrito,
     EstadoCarrito,
@@ -820,6 +822,13 @@ def listar_comparaciones(
             "metodo": metodo_usado,
             "razon": razon_data.get("razon", ""),
             "canonical_id": c.canonical_id,
+            # Observabilidad v2
+            "prompt_version": c.prompt_version,
+            "modelo_usado": c.modelo_usado,
+            "latencia_total_ms": c.latencia_total_ms,
+            "tokens_totales": c.tokens_totales,
+            "costo_usd": c.costo_usd,
+            "tiene_lineage": bool(c.lineage_json),
             "producto_a": {
                 "id": prod_a.id,
                 "nombre": prod_a.nombre_raw,
@@ -908,6 +917,22 @@ def stats_comparaciones(db: Session = Depends(get_db)):
         ProductoProveedor.canonical_id.is_(None)
     ).count()
 
+    # Productos con ETIM y unidad normalizada
+    con_etim = db.query(ProductoProveedor).filter(
+        ProductoProveedor.etim_class_code.isnot(None)
+    ).count()
+    con_unidad_norm = db.query(ProductoProveedor).filter(
+        ProductoProveedor.unidad_normalizada.isnot(None)
+    ).count()
+
+    # Total AI calls y costo
+    total_ai_calls = db.query(AICallLog).count()
+    from sqlalchemy import func as sa_func
+    total_ai_cost = db.query(sa_func.sum(AICallLog.costo_usd)).scalar() or 0
+    avg_latencia_llm = db.query(sa_func.avg(AICallLog.latencia_ms)).filter(
+        AICallLog.call_type == "llm"
+    ).scalar() or 0
+
     return {
         "total_comparaciones": total,
         "total_productos": total_productos,
@@ -915,6 +940,11 @@ def stats_comparaciones(db: Session = Depends(get_db)):
         "productos_con_embedding": productos_con_embedding,
         "productos_sin_embedding": total_productos - productos_con_embedding,
         "productos_sin_canonical": sin_canonical,
+        "productos_con_etim": con_etim,
+        "productos_con_unidad_normalizada": con_unidad_norm,
+        "total_ai_calls": total_ai_calls,
+        "total_ai_cost_usd": round(total_ai_cost, 6),
+        "avg_latencia_llm_ms": round(avg_latencia_llm, 2),
         "distribucion_confidence": rangos,
         "distribucion_metodos": metodos,
     }
@@ -961,6 +991,8 @@ def listar_productos_admin(
             "canonical_nombre": p.canonical.nombre_normalizado if p.canonical else None,
             "tiene_embedding": bool(p.embedding_json),
             "embedding_dim": len(_json_loads_safe(p.embedding_json)) if p.embedding_json else 0,
+            "unidad_normalizada": p.unidad_normalizada,
+            "etim_class_code": p.etim_class_code,
             "scraped_at": p.scraped_at.isoformat() if p.scraped_at else None,
             "estado_scraping": p.estado_scraping.value if p.estado_scraping else None,
         } for p in productos],
@@ -1042,6 +1074,132 @@ async def re_comparar(comparacion_id: int, db: Session = Depends(get_db)):
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Error al re-comparar: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# Endpoints: Observabilidad IA — AI Call Logs, Prompts, Lineage
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/admin/ai-logs",
+    summary="Logs de llamadas IA con filtros",
+)
+def listar_ai_logs(
+    limite: int = 50,
+    offset: int = 0,
+    call_type: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Logs de todas las llamadas a servicios de IA (embeddings, LLM, unit_parse)."""
+    query = db.query(AICallLog).order_by(AICallLog.created_at.desc())
+    if call_type:
+        query = query.filter(AICallLog.call_type == call_type)
+    total = query.count()
+    logs = query.offset(offset).limit(limite).all()
+    return {
+        "total": total,
+        "logs": [{
+            "id": l.id,
+            "call_type": l.call_type,
+            "modelo": l.modelo,
+            "prompt_version": l.prompt_version,
+            "tokens_input": l.tokens_input,
+            "tokens_output": l.tokens_output,
+            "latencia_ms": l.latencia_ms,
+            "costo_usd": l.costo_usd,
+            "exitoso": l.exitoso,
+            "error_msg": l.error_msg,
+            "input_preview": l.input_preview,
+            "created_at": l.created_at.isoformat() if l.created_at else None,
+        } for l in logs],
+    }
+
+
+@router.get(
+    "/admin/ai-stats",
+    summary="Estadísticas agregadas de llamadas IA",
+)
+def stats_ai_calls(db: Session = Depends(get_db)):
+    """Métricas de observabilidad: latencia promedio, costos, tokens."""
+    from sqlalchemy import func
+
+    stats_by_type = (
+        db.query(
+            AICallLog.call_type,
+            func.count(AICallLog.id).label("total"),
+            func.avg(AICallLog.latencia_ms).label("avg_latencia"),
+            func.sum(AICallLog.costo_usd).label("total_costo"),
+            func.sum(AICallLog.tokens_input).label("total_tokens_in"),
+            func.sum(AICallLog.tokens_output).label("total_tokens_out"),
+            func.avg(AICallLog.tokens_input).label("avg_tokens_in"),
+        )
+        .group_by(AICallLog.call_type)
+        .all()
+    )
+
+    total_costo = sum(r.total_costo or 0 for r in stats_by_type)
+    total_llamadas = sum(r.total or 0 for r in stats_by_type)
+
+    return {
+        "total_llamadas": total_llamadas,
+        "total_costo_usd": round(total_costo, 6),
+        "por_tipo": [{
+            "tipo": r.call_type,
+            "total": r.total,
+            "avg_latencia_ms": round(r.avg_latencia or 0, 2),
+            "total_costo_usd": round(r.total_costo or 0, 6),
+            "total_tokens_input": r.total_tokens_in or 0,
+            "total_tokens_output": r.total_tokens_out or 0,
+            "avg_tokens_input": round(r.avg_tokens_in or 0, 0),
+        } for r in stats_by_type],
+    }
+
+
+@router.get(
+    "/admin/prompts",
+    summary="Listar versiones de prompts",
+)
+def listar_prompts(db: Session = Depends(get_db)):
+    """Lista todas las versiones de prompts registradas."""
+    prompts = db.query(PromptVersion).order_by(PromptVersion.created_at.desc()).all()
+    return [{
+        "id": p.id,
+        "version_tag": p.version_tag,
+        "activo": p.activo,
+        "descripcion": p.descripcion,
+        "prompt_hash": p.prompt_hash,
+        "created_at": p.created_at.isoformat() if p.created_at else None,
+    } for p in prompts]
+
+
+@router.get(
+    "/admin/lineage/{comparacion_id}",
+    summary="Ver lineage completo de una comparación",
+)
+def ver_lineage(comparacion_id: int, db: Session = Depends(get_db)):
+    """Traza completa del pipeline para una comparación específica."""
+    comp = db.query(ComparacionPrecios).get(comparacion_id)
+    if not comp:
+        raise HTTPException(status_code=404, detail="Comparación no encontrada.")
+
+    lineage = {}
+    if comp.lineage_json:
+        try:
+            lineage = _json.loads(comp.lineage_json)
+        except _json.JSONDecodeError:
+            lineage = {"raw": comp.lineage_json}
+
+    return {
+        "comparacion_id": comparacion_id,
+        "prompt_version": comp.prompt_version,
+        "modelo_usado": comp.modelo_usado,
+        "latencia_total_ms": comp.latencia_total_ms,
+        "tokens_totales": comp.tokens_totales,
+        "costo_usd": comp.costo_usd,
+        "etim_class_code": comp.etim_class_code,
+        "confidence_score": comp.confidence_score,
+        "lineage": lineage,
+    }
 
 
 def _json_loads_safe(s: Optional[str]) -> list:

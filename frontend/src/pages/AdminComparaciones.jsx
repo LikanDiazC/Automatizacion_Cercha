@@ -20,11 +20,13 @@ const fmtScore = (v) => v != null ? v.toFixed(4) : '—';
 
 const METODO_COLORS = {
   vectorial: '#3b82f6',
+  llm_coem: '#8b5cf6',
   llm: '#8b5cf6',
   texto_jaccard: '#f59e0b',
   texto_jaccard_rechazo: '#ef4444',
   rechazo_directo: '#ef4444',
   unidad_rechazo: '#dc2626',
+  etim_rechazo: '#991b1b',
   vectorial_fallback_textual: '#f97316',
   desconocido: '#6b7280',
 };
@@ -49,8 +51,8 @@ function StatsCards({ stats, loading }) {
     { label: 'Productos', value: stats.total_productos, icon: '📦', color: '#3b82f6' },
     { label: 'Canonicals', value: stats.total_canonicals, icon: '🎯', color: '#10b981' },
     { label: 'Con Embedding', value: stats.productos_con_embedding, icon: '🧠', color: '#8b5cf6' },
-    { label: 'Sin Embedding', value: stats.productos_sin_embedding, icon: '❌', color: '#ef4444' },
-    { label: 'Sin Canonical', value: stats.productos_sin_canonical, icon: '⚠️', color: '#f59e0b' },
+    { label: 'Con ETIM', value: stats.productos_con_etim || 0, icon: '🏷️', color: '#0ea5e9' },
+    { label: 'Costo IA', value: `$${(stats.total_ai_cost_usd || 0).toFixed(4)}`, icon: '💰', color: '#f59e0b' },
   ];
 
   return (
@@ -277,9 +279,19 @@ function ComparacionRow({ comp, onViewEmbedding, onReComparar }) {
             <Box sx={{ py: 2, px: 1 }}>
               <Paper sx={{ p: 2, borderRadius: 2, backgroundColor: '#f8fafc' }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Razon IA:</Typography>
-                <Typography variant="body2" sx={{ mb: 2, fontStyle: 'italic' }}>
+                <Typography variant="body2" sx={{ mb: 1, fontStyle: 'italic' }}>
                   "{comp.razon || 'Sin razon registrada'}"
                 </Typography>
+
+                {/* Observabilidad v2 */}
+                <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                  {comp.prompt_version && <Chip label={`Prompt: ${comp.prompt_version}`} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.6rem' }} />}
+                  {comp.modelo_usado && <Chip label={comp.modelo_usado} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.6rem' }} />}
+                  {comp.latencia_total_ms != null && <Chip label={`${Math.round(comp.latencia_total_ms)}ms`} size="small" sx={{ height: 20, fontSize: '0.6rem', backgroundColor: '#dbeafe' }} />}
+                  {comp.tokens_totales != null && <Chip label={`${comp.tokens_totales} tokens`} size="small" sx={{ height: 20, fontSize: '0.6rem', backgroundColor: '#fef3c7' }} />}
+                  {comp.costo_usd != null && comp.costo_usd > 0 && <Chip label={`$${comp.costo_usd.toFixed(6)}`} size="small" sx={{ height: 20, fontSize: '0.6rem', backgroundColor: '#d1fae5' }} />}
+                  {comp.tiene_lineage && <Chip label="LINEAGE" size="small" color="info" sx={{ height: 20, fontSize: '0.55rem', fontWeight: 700 }} />}
+                </Box>
 
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   {comp.producto_a && (
@@ -323,6 +335,111 @@ function ComparacionRow({ comp, onViewEmbedding, onReComparar }) {
     </>
   );
 }
+
+// ---------------------------------------------------------------------------
+// AILogsTab — Logs de llamadas IA
+// ---------------------------------------------------------------------------
+
+function AILogsTab() {
+  const [logs, setLogs] = useState([]);
+  const [aiStats, setAiStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [filterType, setFilterType] = useState('');
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({ limite: '100' });
+        if (filterType) params.set('call_type', filterType);
+        const [logsR, statsR] = await Promise.all([
+          fetch(`${API}/admin/ai-logs?${params}`).then(r => r.json()),
+          fetch(`${API}/admin/ai-stats`).then(r => r.json()),
+        ]);
+        setLogs(logsR.logs || []);
+        setAiStats(statsR);
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    };
+    load();
+  }, [filterType]);
+
+  const typeColors = { embedding: '#3b82f6', llm: '#8b5cf6', unit_parse: '#f59e0b', etim_classify: '#10b981' };
+
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* AI Stats summary */}
+      {aiStats && (
+        <Grid container spacing={2}>
+          {(aiStats.por_tipo || []).map((t) => (
+            <Grid item xs={6} sm={3} key={t.tipo}>
+              <Card sx={{ borderRadius: 3, border: `2px solid ${(typeColors[t.tipo] || '#6b7280')}20` }}>
+                <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                  <Chip label={t.tipo} size="small" sx={{ mb: 0.5, backgroundColor: `${typeColors[t.tipo] || '#6b7280'}18`, color: typeColors[t.tipo] || '#6b7280', fontWeight: 700, fontSize: '0.6rem' }} />
+                  <Typography variant="body2"><b>{t.total}</b> llamadas</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    Avg: {t.avg_latencia_ms}ms | ${t.total_costo_usd.toFixed(6)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+
+      {/* Filter + Table */}
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel>Tipo</InputLabel>
+          <Select value={filterType} onChange={(e) => setFilterType(e.target.value)} label="Tipo">
+            <MenuItem value="">Todos</MenuItem>
+            <MenuItem value="embedding">Embedding</MenuItem>
+            <MenuItem value="llm">LLM</MenuItem>
+            <MenuItem value="unit_parse">Unit Parse</MenuItem>
+            <MenuItem value="etim_classify">ETIM Classify</MenuItem>
+          </Select>
+        </FormControl>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{logs.length} logs</Typography>
+      </Box>
+
+      {loading && <LinearProgress />}
+
+      <TableContainer component={Paper} sx={{ borderRadius: 3, maxHeight: 'calc(100vh - 400px)' }}>
+        <Table stickyHeader size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Tipo</TableCell>
+              <TableCell>Modelo</TableCell>
+              <TableCell align="right">Latencia</TableCell>
+              <TableCell align="right">Tokens In</TableCell>
+              <TableCell align="right">Tokens Out</TableCell>
+              <TableCell align="right">Costo</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Fecha</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {logs.map((l) => (
+              <TableRow key={l.id} hover>
+                <TableCell>
+                  <Chip label={l.call_type} size="small" sx={{ height: 20, fontSize: '0.6rem', fontWeight: 700, backgroundColor: `${typeColors[l.call_type] || '#6b7280'}18`, color: typeColors[l.call_type] || '#6b7280' }} />
+                </TableCell>
+                <TableCell><Typography variant="caption">{l.modelo || '-'}</Typography></TableCell>
+                <TableCell align="right"><Typography variant="caption" sx={{ fontFamily: 'monospace' }}>{Math.round(l.latencia_ms)}ms</Typography></TableCell>
+                <TableCell align="right"><Typography variant="caption">{l.tokens_input}</Typography></TableCell>
+                <TableCell align="right"><Typography variant="caption">{l.tokens_output}</Typography></TableCell>
+                <TableCell align="right"><Typography variant="caption" sx={{ fontFamily: 'monospace' }}>${(l.costo_usd || 0).toFixed(6)}</Typography></TableCell>
+                <TableCell>{l.exitoso ? <Chip label="OK" size="small" sx={{ height: 18, fontSize: '0.55rem', backgroundColor: '#d1fae5', color: '#065f46' }} /> : <Chip label="ERR" size="small" sx={{ height: 18, fontSize: '0.55rem', backgroundColor: '#fee2e2', color: '#991b1b' }} />}</TableCell>
+                <TableCell><Typography variant="caption" sx={{ color: 'text.secondary' }}>{l.created_at ? new Date(l.created_at).toLocaleString('es-CL') : '-'}</Typography></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
+  );
+}
+
 
 // ---------------------------------------------------------------------------
 // AdminComparaciones — Pagina principal
@@ -430,6 +547,7 @@ export default function AdminComparaciones() {
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
           <Tab label="Comparaciones" />
           <Tab label="Distribuciones" />
+          <Tab label="AI Logs" />
         </Tabs>
       </Paper>
 
@@ -450,6 +568,8 @@ export default function AdminComparaciones() {
                   <MenuItem value="texto_jaccard_rechazo">Jaccard Rechazo</MenuItem>
                   <MenuItem value="rechazo_directo">Rechazo Directo</MenuItem>
                   <MenuItem value="unidad_rechazo">Unidad Rechazo</MenuItem>
+                  <MenuItem value="etim_rechazo">ETIM Rechazo</MenuItem>
+                  <MenuItem value="llm_coem">LLM CoEM</MenuItem>
                 </Select>
               </FormControl>
 
@@ -560,13 +680,14 @@ export default function AdminComparaciones() {
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>Guia de Metodos</Typography>
               <Grid container spacing={1}>
                 {[
-                  { metodo: 'vectorial', desc: 'Similitud coseno alta (>0.92) — match directo por embeddings' },
-                  { metodo: 'llm', desc: 'Zona gris (0.60-0.92) — decision del LLM Gemini' },
-                  { metodo: 'texto_jaccard', desc: 'Match por similitud de bigramas de texto (sin API)' },
-                  { metodo: 'texto_jaccard_rechazo', desc: 'Rechazo por baja similitud textual' },
-                  { metodo: 'rechazo_directo', desc: 'Similitud coseno muy baja (<0.60)' },
-                  { metodo: 'unidad_rechazo', desc: 'Unidades incompatibles detectadas (pack vs unitario, kg vs un)' },
-                  { metodo: 'vectorial_fallback_textual', desc: 'LLM fallo en zona gris, fallback a texto' },
+                  { metodo: 'etim_rechazo', desc: 'Capa 0: Clases ETIM diferentes (ej: tornillo vs perno) — rechazo sin IA' },
+                  { metodo: 'unidad_rechazo', desc: 'Capa 1: quantulum3+pint detecta unidades incompatibles (pack vs unit, kg vs un)' },
+                  { metodo: 'vectorial', desc: 'Capa 2: Similitud coseno alta (>0.92) — match directo por embeddings' },
+                  { metodo: 'rechazo_directo', desc: 'Capa 2: Similitud coseno muy baja (<0.60) — rechazo sin LLM' },
+                  { metodo: 'llm_coem', desc: 'Capa 3: Chain-of-Thought 3 pasos (ComEM) en zona gris (0.60-0.92)' },
+                  { metodo: 'texto_jaccard', desc: 'Capa 4: Fallback sin API — similitud Jaccard bigramas' },
+                  { metodo: 'texto_jaccard_rechazo', desc: 'Capa 4: Rechazo por baja similitud textual (sin API)' },
+                  { metodo: 'vectorial_fallback_textual', desc: 'LLM fallo en zona gris, degradacion a texto' },
                 ].map(({ metodo, desc }) => (
                   <Grid item xs={12} sm={6} key={metodo}>
                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
@@ -587,6 +708,9 @@ export default function AdminComparaciones() {
           </Grid>
         </Grid>
       )}
+
+      {/* Tab 2: AI Logs */}
+      {tab === 2 && <AILogsTab />}
 
       {/* Embedding Viewer Dialog */}
       <EmbeddingViewer

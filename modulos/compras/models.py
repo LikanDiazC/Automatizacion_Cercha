@@ -77,8 +77,10 @@ class ProductoProveedor(Base):
     precio_clp      = Column(Float, nullable=False)      # Precio en CLP
     precio_oferta   = Column(Float)                      # Precio con descuento si existe
     unidad          = Column(String(60))                 # "unidad", "caja x100", "kg"
+    unidad_normalizada = Column(String(120))            # Parseada por quantulum3+pint
     imagen_url      = Column(Text)
     disponible      = Column(Boolean, default=True)
+    etim_class_code = Column(String(20))                # Clase ETIM asignada
     
     # IA / similitud
     # MIGRACIÓN: reemplazar por Vector(1536) con pgvector en PostgreSQL
@@ -168,7 +170,7 @@ class ComparacionPrecios(Base):
     """
     Resultado del análisis de IA para un par de productos de distintos proveedores.
     Guarda el confidence_score para no recalcular en cada request.
-    
+
     Se invalida automáticamente si algún producto supera MAX_AGE_HOURS.
     """
     __tablename__ = "comparaciones_precios"
@@ -179,18 +181,79 @@ class ComparacionPrecios(Base):
     proveedor_b      = Column(SAEnum(NombreProveedor), nullable=False)
     producto_a_id    = Column(Integer, ForeignKey("productos_proveedor.id"), nullable=False)
     producto_b_id    = Column(Integer, ForeignKey("productos_proveedor.id"), nullable=False)
-    
+
     # Resultado de la IA
     confidence_score = Column(Float, nullable=False)    # 0.0 - 1.0
     razon_ia         = Column(Text)                     # Justificación del LLM (JSON)
     precio_diff_pct  = Column(Float)                    # % diferencia de precio
     precio_minimo    = Column(Float)                    # El más barato de los dos
     proveedor_minimo = Column(SAEnum(NombreProveedor))
-    
+
+    # Observabilidad / Lineage (v2)
+    prompt_version   = Column(String(60))               # Versión del prompt usado
+    modelo_usado     = Column(String(60))               # gemini-2.5-flash, etc.
+    latencia_total_ms= Column(Float)                    # Latencia total del pipeline
+    tokens_totales   = Column(Integer)                  # Tokens consumidos
+    costo_usd        = Column(Float)                    # Costo estimado de la comparación
+    lineage_json     = Column(Text)                     # JSON con traza completa del pipeline
+    etim_class_code  = Column(String(20))               # Clase ETIM si se clasificó
+
     calculado_at     = Column(DateTime, default=datetime.utcnow)
-    
+
     producto_a       = relationship("ProductoProveedor", foreign_keys=[producto_a_id])
     producto_b       = relationship("ProductoProveedor", foreign_keys=[producto_b_id])
+
+
+# ---------------------------------------------------------------------------
+# AICallLog — Observabilidad de cada llamada IA
+# ---------------------------------------------------------------------------
+
+class AICallLog(Base):
+    """
+    Log de cada llamada a servicios de IA (embeddings, LLM, unit_parse).
+    Permite monitorear latencia, costos y accuracy decay.
+    """
+    __tablename__ = "ai_call_logs"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    call_type       = Column(String(30), nullable=False, index=True)  # "embedding" | "llm" | "unit_parse" | "etim_classify"
+    modelo          = Column(String(60))
+    prompt_version  = Column(String(60))
+
+    producto_a_id   = Column(Integer, ForeignKey("productos_proveedor.id"), nullable=True)
+    producto_b_id   = Column(Integer, ForeignKey("productos_proveedor.id"), nullable=True)
+
+    tokens_input    = Column(Integer, default=0)
+    tokens_output   = Column(Integer, default=0)
+    latencia_ms     = Column(Float, nullable=False)
+    costo_usd       = Column(Float, default=0.0)
+
+    input_preview   = Column(String(500))     # Primeros 500 chars del input
+    resultado_json  = Column(Text)            # JSON del resultado
+    exitoso         = Column(Boolean, default=True)
+    error_msg       = Column(String(300))
+
+    created_at      = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+# ---------------------------------------------------------------------------
+# PromptVersion — Versionamiento de prompts
+# ---------------------------------------------------------------------------
+
+class PromptVersion(Base):
+    """
+    Registro de cada versión del prompt del LLM.
+    Permite trazar qué prompt produjo cada comparación.
+    """
+    __tablename__ = "prompt_versions"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    version_tag     = Column(String(60), unique=True, nullable=False)  # "coem_v1", "coem_v2"
+    prompt_text     = Column(Text, nullable=False)
+    prompt_hash     = Column(String(64), nullable=False)  # SHA-256 del texto
+    activo          = Column(Boolean, default=False)
+    descripcion     = Column(String(300))
+    created_at      = Column(DateTime, default=datetime.utcnow)
 
 
 # ---------------------------------------------------------------------------

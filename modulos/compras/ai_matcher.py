@@ -1,21 +1,33 @@
 """
-Motor de IA para emparejamiento de productos entre proveedores.
+Motor de IA para emparejamiento de productos — Compound Entity Matching (ComEM).
+
+ARQUITECTURA v2:
+  Pipeline de 5 capas con observabilidad completa:
+    Capa 0 → ETIM Taxonomy (clasificación por clase de producto)
+    Capa 1 → Unit Normalizer (quantulum3 + pint)
+    Capa 2 → Embeddings (Gemini gemini-embedding-001)
+    Capa 3 → LLM Chain-of-Thought (Gemini 2.5-flash, 3-step CoT)
+    Capa 4 → Jaccard Fallback (sin API key)
 
 MODOS DE OPERACIÓN:
-  - Con LLM_API_KEY válida → embeddings OpenAI + GPT-4o (máxima precisión)
-  - Sin LLM_API_KEY        → similitud textual (Jaccard + bigramas) — sin costo
+  - Con LLM_API_KEY → Capas 0+1+2+3 (máxima precisión)
+  - Sin LLM_API_KEY → Capas 0+1+4 (sin costo)
 
-El sistema detecta automáticamente qué modo usar.
+REFERENCIA:
+  - ComEM: Compound Entity Matching framework
+  - CoT: Chain-of-Thought prompting (Wei et al., 2022)
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
 import re
 import asyncio
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from typing import Optional
 
 import httpx
@@ -26,25 +38,36 @@ from .models import (
     ProductoProveedor,
     ProductoCanonical,
     ComparacionPrecios,
+    AICallLog,
+    PromptVersion,
     NombreProveedor,
+)
+from .unit_normalizer import compare_units, normalized_unit_text, UnitComparisonResult
+from .etim_taxonomy import (
+    classify_product,
+    are_same_etim_class,
+    get_critical_attributes_diff,
+    ClassificationResult,
 )
 
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Umbrales
+# Configuración y umbrales
 # ---------------------------------------------------------------------------
 UMBRAL_MATCH_DIRECTO: float = 0.92
 UMBRAL_RECHAZO_DIRECTO: float = 0.60
 UMBRAL_LLM_MATCH: float = 0.75
 EMBEDDING_MODEL = "gemini-embedding-001"
 LLM_MODEL = "gemini-2.5-flash"
-# gemini-2.5-flash es un modelo con "thinking" interno.
-# Los thinking tokens consumen el presupuesto de max_tokens ANTES del output visible.
-# Con 400 tokens el modelo se queda sin espacio para escribir el JSON → respuesta truncada.
-# 2048 es suficiente para el JSON de respuesta + overhead de thinking.
 LLM_MAX_TOKENS_RESPUESTA = 2048
 EMBEDDING_DIM = 3072
+PROMPT_VERSION_TAG = "coem_v2"
+
+# Costos estimados por token (Gemini pricing — ajustar según plan)
+_COST_PER_INPUT_TOKEN = 0.0000001    # $0.10 / 1M tokens
+_COST_PER_OUTPUT_TOKEN = 0.0000004   # $0.40 / 1M tokens
+_COST_PER_EMBEDDING_TOKEN = 0.00000001  # ~$0.01 / 1M tokens
 
 
 # ---------------------------------------------------------------------------
@@ -59,6 +82,9 @@ class MatchResult:
     razon: str
     metodo: str
     tokens_usados: int = 0
+    latencia_ms: float = 0.0
+    costo_usd: float = 0.0
+    lineage: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -66,6 +92,7 @@ class EmbeddingResult:
     vector: list[float]
     tokens_input: int
     modelo: str
+    latencia_ms: float = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +100,6 @@ class EmbeddingResult:
 # ---------------------------------------------------------------------------
 
 def _tiene_api_key_valida() -> bool:
-    """Retorna True solo si hay una key que no sea el placeholder del .env."""
     key = settings.llm_api_key or ""
     return bool(key) and "aqui" not in key.lower() and len(key) > 20
 
@@ -81,9 +107,7 @@ def _tiene_api_key_valida() -> bool:
 def _get_openai_headers() -> dict[str, str]:
     api_key = settings.llm_api_key
     if not api_key or not _tiene_api_key_valida():
-        raise RuntimeError(
-            "LLM_API_KEY no configurada. Agregar al .env: LLM_API_KEY=sk-..."
-        )
+        raise RuntimeError("LLM_API_KEY no configurada.")
     return {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -91,21 +115,63 @@ def _get_openai_headers() -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
-# Similitud textual (fallback sin OpenAI)
+# Observabilidad — logging de llamadas IA
+# ---------------------------------------------------------------------------
+
+def _log_ai_call(
+    db: Session,
+    call_type: str,
+    latencia_ms: float,
+    modelo: str = "",
+    tokens_input: int = 0,
+    tokens_output: int = 0,
+    producto_a_id: Optional[int] = None,
+    producto_b_id: Optional[int] = None,
+    input_preview: str = "",
+    resultado_json: str = "",
+    exitoso: bool = True,
+    error_msg: str = "",
+) -> None:
+    """Persiste un registro de observabilidad en AICallLog."""
+    try:
+        costo = (tokens_input * _COST_PER_INPUT_TOKEN +
+                 tokens_output * _COST_PER_OUTPUT_TOKEN)
+        if call_type == "embedding":
+            costo = tokens_input * _COST_PER_EMBEDDING_TOKEN
+
+        db.add(AICallLog(
+            call_type=call_type,
+            modelo=modelo,
+            prompt_version=PROMPT_VERSION_TAG if call_type == "llm" else None,
+            producto_a_id=producto_a_id,
+            producto_b_id=producto_b_id,
+            tokens_input=tokens_input,
+            tokens_output=tokens_output,
+            latencia_ms=round(latencia_ms, 2),
+            costo_usd=round(costo, 8),
+            input_preview=input_preview[:500] if input_preview else "",
+            resultado_json=resultado_json[:2000] if resultado_json else "",
+            exitoso=exitoso,
+            error_msg=error_msg[:300] if error_msg else "",
+        ))
+        db.commit()
+    except Exception as exc:
+        logger.debug("Error logging AI call: %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# Similitud textual (Jaccard — fallback sin API)
 # ---------------------------------------------------------------------------
 
 def _normalizar_texto(texto: str) -> str:
-    """Minúsculas, sin tildes básicas, sin caracteres especiales."""
     t = texto.lower().strip()
-    t = t.replace("á","a").replace("é","e").replace("í","i").replace("ó","o").replace("ú","u")
-    t = t.replace("ñ","n")
+    for a, b in [("á","a"),("é","e"),("í","i"),("ó","o"),("ú","u"),("ñ","n")]:
+        t = t.replace(a, b)
     t = re.sub(r"[^\w\s\d/\"'.-]", " ", t)
-    t = re.sub(r"\s+", " ", t).strip()
-    return t
+    return re.sub(r"\s+", " ", t).strip()
 
 
 def _bigramas(texto: str) -> set[str]:
-    """Genera bigramas de palabras: {'tornillo hexagonal', 'hexagonal 1/4', ...}"""
     palabras = _normalizar_texto(texto).split()
     if len(palabras) < 2:
         return set(palabras)
@@ -113,155 +179,63 @@ def _bigramas(texto: str) -> set[str]:
 
 
 def similitud_textual(nombre_a: str, nombre_b: str) -> float:
-    """
-    Similitud Jaccard sobre bigramas de palabras.
-    Rango: 0.0 (sin coincidencia) a 1.0 (idénticos).
-
-    Ventajas sobre Levenshtein:
-    - Insensible al orden de palabras
-    - Funciona bien con nombres de productos que comparten subfrases
-    - O(n) en lugar de O(n²)
-    """
     set_a = _bigramas(nombre_a)
     set_b = _bigramas(nombre_b)
     if not set_a and not set_b:
         return 1.0
     if not set_a or not set_b:
         return 0.0
-    interseccion = set_a & set_b
-    union = set_a | set_b
-    return len(interseccion) / len(union)
+    return len(set_a & set_b) / len(set_a | set_b)
 
 
 def _construir_texto_matching(producto: ProductoProveedor) -> str:
-    """Texto representativo del producto para similitud."""
     partes = [
         producto.nombre_raw,
         f"marca {producto.marca}" if producto.marca else "",
-        f"unidad {producto.unidad}" if producto.unidad else "",
+        f"unidad {producto.unidad_normalizada or producto.unidad}" if (producto.unidad_normalizada or producto.unidad) else "",
     ]
     return " ".join(p for p in partes if p).strip()
-
-
-def _detectar_unidad_incompatible(producto_a: ProductoProveedor, producto_b: ProductoProveedor) -> Optional[str]:
-    """
-    Detecta si dos productos tienen unidades de venta claramente incompatibles.
-    Retorna una explicación si son incompatibles, None si son compatibles o no se puede determinar.
-    """
-    # Patrones que indican pack/bulk vs unitario
-    PATRONES_BULK = re.compile(
-        r'(?:pack|caja|bolsa|rollo|paquete|saco)\s*(?:de\s*)?(\d+)|'
-        r'x\s*(\d+)|'
-        r'(\d+)\s*(?:un(?:idades?)?|pzas?|piezas)',
-        re.IGNORECASE,
-    )
-
-    nombre_a = (producto_a.nombre_raw or "").lower()
-    nombre_b = (producto_b.nombre_raw or "").lower()
-    unidad_a = (producto_a.unidad or "").lower()
-    unidad_b = (producto_b.unidad or "").lower()
-
-    # Extraer cantidades de bulk
-    def _extraer_cantidad(nombre: str, unidad: str) -> Optional[int]:
-        for m in PATRONES_BULK.finditer(nombre):
-            for g in m.groups():
-                if g:
-                    return int(g)
-        for m in PATRONES_BULK.finditer(unidad):
-            for g in m.groups():
-                if g:
-                    return int(g)
-        return None
-
-    cant_a = _extraer_cantidad(nombre_a, unidad_a)
-    cant_b = _extraer_cantidad(nombre_b, unidad_b)
-
-    # Si uno tiene cantidad bulk y el otro no, son incompatibles
-    if cant_a and not cant_b and cant_a > 1:
-        return f"Producto A es pack de {cant_a}, Producto B parece unitario"
-    if cant_b and not cant_a and cant_b > 1:
-        return f"Producto B es pack de {cant_b}, Producto A parece unitario"
-    if cant_a and cant_b and cant_a != cant_b:
-        return f"Cantidades diferentes: A={cant_a} vs B={cant_b}"
-
-    # Detectar kg vs unidad
-    kg_patterns = re.compile(r'\d+\s*kg', re.IGNORECASE)
-    a_es_kg = bool(kg_patterns.search(nombre_a) or "kg" in unidad_a)
-    b_es_kg = bool(kg_patterns.search(nombre_b) or "kg" in unidad_b)
-    a_es_un = "unidad" in unidad_a or "un" == unidad_a.strip()
-    b_es_un = "unidad" in unidad_b or "un" == unidad_b.strip()
-
-    if a_es_kg and b_es_un:
-        return "Producto A se vende por kg, Producto B por unidad"
-    if b_es_kg and a_es_un:
-        return "Producto B se vende por kg, Producto A por unidad"
-
-    # Ratio de precios como señal adicional
-    precio_a = producto_a.precio_oferta or producto_a.precio_clp or 0
-    precio_b = producto_b.precio_oferta or producto_b.precio_clp or 0
-    if precio_a > 0 and precio_b > 0:
-        ratio = max(precio_a, precio_b) / min(precio_a, precio_b)
-        if ratio > 10:
-            return f"Ratio de precios muy alto ({ratio:.0f}x) — probablemente unidades diferentes"
-
-    return None
 
 
 def comparar_textualmente(
     producto_a: ProductoProveedor,
     producto_b: ProductoProveedor,
 ) -> MatchResult:
-    """
-    Matching sin API: usa similitud Jaccard + bigramas + detección de unidades.
-    Adecuado para desarrollo y demos sin API key de OpenAI.
-    """
-    # Verificar incompatibilidad de unidades ANTES de la similitud textual
-    unidad_incompat = _detectar_unidad_incompatible(producto_a, producto_b)
-    if unidad_incompat:
-        return MatchResult(
-            es_mismo_producto=False,
-            confidence_score=0.0,
-            similitud_coseno=0.0,
-            razon=f"Unidades incompatibles: {unidad_incompat}",
-            metodo="unidad_rechazo",
-        )
-
+    t0 = time.perf_counter()
     texto_a = _construir_texto_matching(producto_a)
     texto_b = _construir_texto_matching(producto_b)
     sim = similitud_textual(texto_a, texto_b)
+    lat = (time.perf_counter() - t0) * 1000
 
-    logger.debug(
-        "Similitud textual (%s vs %s) = %.4f",
-        producto_a.sku_proveedor, producto_b.sku_proveedor, sim,
-    )
-
-    if sim >= 0.40:  # Umbral más permisivo que vectorial (bigramas son menos precisos)
+    if sim >= 0.40:
         return MatchResult(
             es_mismo_producto=True,
-            confidence_score=round(min(sim * 0.85, 0.85), 4),  # Cap en 0.85 (sin LLM)
+            confidence_score=round(min(sim * 0.85, 0.85), 4),
             similitud_coseno=round(sim, 4),
             razon=f"Similitud textual (Jaccard bigramas): {sim:.2%}",
             metodo="texto_jaccard",
+            latencia_ms=lat,
         )
-    else:
-        return MatchResult(
-            es_mismo_producto=False,
-            confidence_score=0.0,
-            similitud_coseno=round(sim, 4),
-            razon=f"Baja similitud textual: {sim:.2%}",
-            metodo="texto_jaccard_rechazo",
-        )
+    return MatchResult(
+        es_mismo_producto=False,
+        confidence_score=0.0,
+        similitud_coseno=round(sim, 4),
+        razon=f"Baja similitud textual: {sim:.2%}",
+        metodo="texto_jaccard_rechazo",
+        latencia_ms=lat,
+    )
 
 
 # ---------------------------------------------------------------------------
-# Embeddings (solo si hay API key)
+# Embeddings (Gemini)
 # ---------------------------------------------------------------------------
 
 def _construir_texto_embedding(producto: ProductoProveedor) -> str:
+    unit_text = normalized_unit_text(producto.nombre_raw, producto.unidad or "")
     partes = [
         producto.nombre_raw,
         f"Marca: {producto.marca}" if producto.marca else "",
-        f"Unidad: {producto.unidad}" if producto.unidad else "",
+        f"Unidad de venta: {unit_text}",
         f"Proveedor: {producto.proveedor}",
     ]
     return " | ".join(p for p in partes if p).strip()
@@ -271,6 +245,7 @@ async def generar_embedding(texto: str) -> EmbeddingResult:
     if not texto or not texto.strip():
         raise ValueError("No se puede generar embedding de texto vacío")
 
+    t0 = time.perf_counter()
     payload = {
         "model": EMBEDDING_MODEL,
         "input": texto[:8000],
@@ -283,23 +258,19 @@ async def generar_embedding(texto: str) -> EmbeddingResult:
             json=payload,
         )
 
-    if respuesta.status_code != 200:
-        raise RuntimeError(
-            f"Error de Embeddings [{respuesta.status_code}]: {respuesta.text[:300]}"
-        )
+    lat = (time.perf_counter() - t0) * 1000
 
- # PONER ESTO:
+    if respuesta.status_code != 200:
+        raise RuntimeError(f"Error Embeddings [{respuesta.status_code}]: {respuesta.text[:300]}")
+
     data = respuesta.json()
-    
-    # Extraer tokens de forma segura (si no existe 'usage', asume 0)
-    tokens = 0
-    if "usage" in data and "prompt_tokens" in data["usage"]:
-        tokens = data["usage"]["prompt_tokens"]
+    tokens = data.get("usage", {}).get("prompt_tokens", 0)
 
     return EmbeddingResult(
         vector=data["data"][0]["embedding"],
         tokens_input=tokens,
         modelo=EMBEDDING_MODEL,
+        latencia_ms=lat,
     )
 
 
@@ -311,20 +282,22 @@ async def generar_y_guardar_embedding(
         return json.loads(producto.embedding_json)
 
     texto = _construir_texto_embedding(producto)
-    try:
-        resultado = await generar_embedding(texto)
-        producto.embedding_json = json.dumps(resultado.vector)
-        db.add(producto)
-        db.commit()
-        logger.debug("Embedding generado para producto id=%s", producto.id)
-        return resultado.vector
-    except Exception as exc:
-        logger.error("No se pudo generar embedding para producto id=%s: %s", producto.id, exc)
-        raise
+    resultado = await generar_embedding(texto)
+    producto.embedding_json = json.dumps(resultado.vector)
+    db.add(producto)
+    db.commit()
+
+    _log_ai_call(
+        db, call_type="embedding", latencia_ms=resultado.latencia_ms,
+        modelo=EMBEDDING_MODEL, tokens_input=resultado.tokens_input,
+        producto_a_id=producto.id, input_preview=texto, exitoso=True,
+    )
+
+    return resultado.vector
 
 
 # ---------------------------------------------------------------------------
-# Similitud coseno (para vectores de embeddings)
+# Similitud coseno
 # ---------------------------------------------------------------------------
 
 def similitud_coseno(vec_a: list[float], vec_b: list[float]) -> float:
@@ -354,126 +327,140 @@ def buscar_por_similitud(
 
 
 # ---------------------------------------------------------------------------
-# LLM — evaluación multimodal (solo si hay API key)
+# LLM — Chain-of-Thought ComEM (3 pasos)
 # ---------------------------------------------------------------------------
 
-PROMPT_SISTEMA = """
-Eres un experto en materiales de construcción y ferretería chilena.
-Tu trabajo es determinar si dos productos de distintas tiendas son EXACTAMENTE el mismo artículo,
-de forma que un comprador pueda elegir entre ambos como alternativas equivalentes.
+PROMPT_SISTEMA_COEM = """
+Eres un experto en Entity Resolution para materiales de construcción y ferretería chilena.
+Sigues el framework ComEM (Compound Entity Matching) con razonamiento Chain-of-Thought de 3 pasos.
 
-Tienes TRES tareas en orden:
+Para cada par de productos, ejecuta estos pasos EN ORDEN:
 
-1. RELEVANCIA: ¿Cada producto corresponde a lo que el usuario buscó?
-   Si alguno de los dos NO es relevante al término de búsqueda,
-   responde es_mismo_producto=false y confidence_score=0.0.
+═══ PASO 1: IDENTIFICACIÓN DE TOKENS ═══
+Lista TODOS los tokens significativos de cada producto:
+- Tipo de producto base (tornillo, clavo, perno, etc.)
+- Dimensiones (diámetro, largo, espesor)
+- Material y acabado (acero, zincado, inox, etc.)
+- Marca y modelo
+- Unidad de venta (pack, unidad, kg, metro, rollo)
+- Cantidad en el envase
 
-2. UNIDAD Y CANTIDAD (CRÍTICO — la causa #1 de errores):
-   Analiza CUIDADOSAMENTE la unidad de venta de cada producto:
-   - "Pack 100 unidades" vs "1 unidad" → NO son el mismo producto
-   - "Caja x 50" vs "unidad" → NO son el mismo producto
-   - "1 kg" vs "1 unidad" → NO son el mismo producto
-   - "Bolsa 25 kg" vs "Bolsa 1 kg" → NO son el mismo producto
-   - "Metro lineal" vs "Rollo 25 m" → NO son el mismo producto
+Marca cada token como COINCIDENTE (✓) o DISCREPANTE (✗) entre ambos productos.
 
-   PISTAS para detectar la unidad de venta:
-   - Busca en el nombre: "pack", "caja", "bolsa", "rollo", "x100", "x50", etc.
-   - El campo "Unidad" te dice cómo se vende (un, pack, kg, m, etc.)
-   - Si el precio de un producto es 50x mayor que el otro para el mismo artículo,
-     probablemente uno es pack/caja y el otro es unitario.
+═══ PASO 2: INFLUENCIA DE ATRIBUTOS ═══
+Para cada token identificado, clasifícalo:
+- CRÍTICO: Si difiere, los productos NO son el mismo (dimensiones, material, tipo, unidad de venta)
+- INFORMATIVO: Puede diferir sin cambiar la identidad del producto (formato de nombre, proveedor)
 
-   Si las unidades NO son equivalentes → es_mismo_producto=false SIEMPRE,
-   incluso si el producto base es idéntico.
+REGLAS DURAS (nunca ignorar):
+- Pack/Caja de N unidades ≠ Unidad individual → SIEMPRE productos diferentes
+- 1 kg ≠ 1 unidad → SIEMPRE productos diferentes
+- Diámetro 1/4" ≠ 3/8" → SIEMPRE productos diferentes
+- Zincado ≠ Pavonado ≠ Inoxidable → SIEMPRE productos diferentes
+- Si el ratio de precios es >5x para productos aparentemente iguales → VERIFICAR unidades
 
-3. EQUIVALENCIA: Solo si AMBOS son relevantes Y tienen la misma unidad de venta,
-   determina si son EXACTAMENTE el mismo artículo:
-   - Nombre y descripción
-   - Marca y modelo
-   - Medidas y dimensiones (un tornillo 1/4\" NO es igual a uno 3/8\")
-   - Material y acabado (zincado ≠ pavonado ≠ acero inoxidable)
+═══ PASO 3: VEREDICTO FINAL ═══
+Basándote en los pasos 1 y 2:
+- Si ALGÚN token CRÍTICO es DISCREPANTE → es_mismo_producto = false
+- Si TODOS los tokens CRÍTICOS COINCIDEN → es_mismo_producto = true
+- confidence_score refleja cuántos tokens pudiste verificar (más tokens verificados = más confianza)
 
-Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional:
+Responde ÚNICAMENTE con un JSON válido:
 {
-  "es_mismo_producto": true | false,
-  "confidence_score": 0.0 a 1.0,
-  "razon": "Explicación breve (máx 100 palabras)",
-  "diferencias_criticas": ["lista de diferencias encontradas"],
-  "producto_a_relevante": true | false,
-  "producto_b_relevante": true | false,
-  "unidad_a": "unidad de venta detectada para producto A",
-  "unidad_b": "unidad de venta detectada para producto B",
-  "unidades_compatibles": true | false
+  "paso_1_tokens": {
+    "producto_a": ["token1", "token2", ...],
+    "producto_b": ["token1", "token2", ...],
+    "coincidentes": ["token1", ...],
+    "discrepantes": ["token1: A=valor vs B=valor", ...]
+  },
+  "paso_2_influencia": {
+    "criticos_coincidentes": ["token1", ...],
+    "criticos_discrepantes": ["token1: razón", ...],
+    "informativos": ["token1", ...]
+  },
+  "paso_3_veredicto": {
+    "es_mismo_producto": true | false,
+    "confidence_score": 0.0 a 1.0,
+    "razon": "Explicación breve basada en los pasos anteriores",
+    "unidad_a": "unidad de venta detectada",
+    "unidad_b": "unidad de venta detectada",
+    "unidades_compatibles": true | false
+  }
 }
 """.strip()
+
+# Hash para versionamiento
+_PROMPT_HASH = hashlib.sha256(PROMPT_SISTEMA_COEM.encode()).hexdigest()[:16]
 
 
 async def evaluar_con_llm(
     producto_a: ProductoProveedor,
     producto_b: ProductoProveedor,
     query_original: str = "",
+    etim_context: str = "",
+    unit_context: str = "",
+    db: Optional[Session] = None,
 ) -> dict:
-    bloque_query = f"\nBÚSQUEDA DEL USUARIO: \"{query_original}\"\n\n" if query_original else "\n"
+    """Evaluación LLM con Chain-of-Thought de 3 pasos (ComEM framework)."""
 
-    # Detectar ratio de precios para dar pista a la IA sobre posible diferencia de unidades
+    bloque_query = f"\nBÚSQUEDA DEL USUARIO: \"{query_original}\"\n" if query_original else ""
+
+    # Contexto ETIM y unidades pre-calculado
+    contexto_extra = ""
+    if etim_context:
+        contexto_extra += f"\n{etim_context}\n"
+    if unit_context:
+        contexto_extra += f"\n{unit_context}\n"
+
+    # Detectar ratio de precios
     precio_a = producto_a.precio_oferta or producto_a.precio_clp or 0
     precio_b = producto_b.precio_oferta or producto_b.precio_clp or 0
-    ratio_precio = ""
+    alerta_precio = ""
     if precio_a > 0 and precio_b > 0:
         ratio = max(precio_a, precio_b) / min(precio_a, precio_b)
         if ratio > 5:
-            ratio_precio = f"\n⚠️ ALERTA: El ratio de precios es {ratio:.1f}x — esto sugiere fuertemente que las unidades de venta son DIFERENTES (pack vs unitario, kg vs unidad, etc.). Verifica con cuidado.\n"
+            alerta_precio = f"\n⚠️ ALERTA PRECIO: Ratio {ratio:.1f}x — verificar unidades de venta.\n"
 
     contenido: list[dict] = [{
         "type": "text",
-        "text": f"""{bloque_query}PRODUCTO A ({producto_a.proveedor}):
-  Nombre:  {producto_a.nombre_raw}
-  Marca:   {producto_a.marca or 'No especificada'}
-  Precio:  ${producto_a.precio_clp:,.0f} CLP{f' (oferta: ${producto_a.precio_oferta:,.0f})' if producto_a.precio_oferta else ''}
-  Unidad:  {producto_a.unidad or 'No especificada'}
-  SKU:     {producto_a.sku_proveedor}
-  URL:     {producto_a.url_producto or 'No disponible'}
+        "text": f"""{bloque_query}
+PRODUCTO A ({producto_a.proveedor}):
+  Nombre:    {producto_a.nombre_raw}
+  Marca:     {producto_a.marca or 'No especificada'}
+  Precio:    ${producto_a.precio_clp:,.0f} CLP{f' (oferta: ${producto_a.precio_oferta:,.0f})' if producto_a.precio_oferta else ''}
+  Unidad:    {producto_a.unidad or 'No especificada'}
+  Und.Norm.: {producto_a.unidad_normalizada or 'No parseada'}
+  SKU:       {producto_a.sku_proveedor}
+  URL:       {producto_a.url_producto or 'N/A'}
 
 PRODUCTO B ({producto_b.proveedor}):
-  Nombre:  {producto_b.nombre_raw}
-  Marca:   {producto_b.marca or 'No especificada'}
-  Precio:  ${producto_b.precio_clp:,.0f} CLP{f' (oferta: ${producto_b.precio_oferta:,.0f})' if producto_b.precio_oferta else ''}
-  Unidad:  {producto_b.unidad or 'No especificada'}
-  SKU:     {producto_b.sku_proveedor}
-  URL:     {producto_b.url_producto or 'No disponible'}
-{ratio_precio}
-¿Son exactamente el mismo producto con la misma unidad de venta?
+  Nombre:    {producto_b.nombre_raw}
+  Marca:     {producto_b.marca or 'No especificada'}
+  Precio:    ${producto_b.precio_clp:,.0f} CLP{f' (oferta: ${producto_b.precio_oferta:,.0f})' if producto_b.precio_oferta else ''}
+  Unidad:    {producto_b.unidad or 'No especificada'}
+  Und.Norm.: {producto_b.unidad_normalizada or 'No parseada'}
+  SKU:       {producto_b.sku_proveedor}
+  URL:       {producto_b.url_producto or 'N/A'}
+{contexto_extra}{alerta_precio}
+Ejecuta los 3 pasos del framework ComEM y entrega tu veredicto.
 """.strip(),
     }]
-
-    # Agregar imágenes si están disponibles
-    #for label, prod in [("Producto A", producto_a), ("Producto B", producto_b)]:
-     #   if prod.imagen_url:
-      #      contenido.append({"type": "text", "text": f"Imagen {label}:"})
-       #     contenido.append({
-        #        "type": "image_url",
-         #       "image_url": {"url": prod.imagen_url, "detail": "low"},
-          #  })
 
     payload = {
         "model": LLM_MODEL,
         "max_tokens": LLM_MAX_TOKENS_RESPUESTA,
         "messages": [
-            {"role": "system", "content": PROMPT_SISTEMA},
+            {"role": "system", "content": PROMPT_SISTEMA_COEM},
             {"role": "user", "content": contenido},
         ],
         "response_format": {"type": "json_object"},
         "temperature": 0.1,
-        # Nota: el parámetro "thinking" NO es compatible con el endpoint
-        # OpenAI-compatible de Gemini (/v1beta/openai/v1/...).
-        # El truncamiento estaba causado por max_tokens bajo (400), ya corregido arriba.
     }
 
-    # Delay adaptativo: respetar el rate limit de la API (Free Tier: ~15 rpm)
-    # En producción con API de pago se puede reducir este valor.
     _LLM_RATE_LIMIT_DELAY = 2.0
-    logger.info("Esperando %.1fs para respetar límite de API...", _LLM_RATE_LIMIT_DELAY)
     await asyncio.sleep(_LLM_RATE_LIMIT_DELAY)
 
+    t0 = time.perf_counter()
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.post(
             "https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions",
@@ -482,8 +469,7 @@ PRODUCTO B ({producto_b.proveedor}):
         )
 
     if resp.status_code == 429:
-        # Rate limit: esperar más y reintentar una vez
-        logger.warning("Rate limit de LLM alcanzado (429) — reintentando en 10s...")
+        logger.warning("Rate limit (429) — reintentando en 10s...")
         await asyncio.sleep(10)
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
@@ -492,27 +478,43 @@ PRODUCTO B ({producto_b.proveedor}):
                 json=payload,
             )
 
+    latencia = (time.perf_counter() - t0) * 1000
+
     if resp.status_code != 200:
-        raise RuntimeError(f"Error de LLM [{resp.status_code}]: {resp.text[:300]}")
+        raise RuntimeError(f"Error LLM [{resp.status_code}]: {resp.text[:300]}")
 
     data = resp.json()
-    tokens = data.get("usage", {}).get("total_tokens", 0)
+    usage = data.get("usage", {})
+    tokens_in = usage.get("prompt_tokens", 0)
+    tokens_out = usage.get("completion_tokens", 0)
+    tokens_total = usage.get("total_tokens", 0)
     contenido_llm = data["choices"][0]["message"]["content"]
 
-    resultado = _parsear_respuesta_llm(contenido_llm)
-    resultado["tokens_usados"] = tokens
+    resultado = _parsear_respuesta_coem(contenido_llm)
+    resultado["tokens_usados"] = tokens_total
+    resultado["tokens_input"] = tokens_in
+    resultado["tokens_output"] = tokens_out
+    resultado["latencia_ms"] = latencia
+    resultado["costo_usd"] = (tokens_in * _COST_PER_INPUT_TOKEN +
+                               tokens_out * _COST_PER_OUTPUT_TOKEN)
+
+    # Log de observabilidad
+    if db:
+        _log_ai_call(
+            db, call_type="llm", latencia_ms=latencia, modelo=LLM_MODEL,
+            tokens_input=tokens_in, tokens_output=tokens_out,
+            producto_a_id=producto_a.id, producto_b_id=producto_b.id,
+            input_preview=contenido[0]["text"][:500],
+            resultado_json=contenido_llm[:2000],
+        )
+
     return resultado
 
 
-def _parsear_respuesta_llm(contenido: str) -> dict:
+def _parsear_respuesta_coem(contenido: str) -> dict:
     """
-    Parsea la respuesta JSON del LLM con tres capas de fallback:
-    1. json.loads directo (caso ideal)
-    2. Extracción de JSON con regex si el modelo añadió texto extra
-    3. Valores seguros por defecto si todo falla
-
-    Esto evita que una respuesta malformada produzca un crash silencioso
-    donde confidence_score queda en 0.0 sin que nadie lo note.
+    Parsea respuesta JSON del LLM con formato ComEM de 3 pasos.
+    Extrae el veredicto del paso_3_veredicto si existe.
     """
     defaults = {
         "es_mismo_producto": False,
@@ -526,44 +528,60 @@ def _parsear_respuesta_llm(contenido: str) -> dict:
 
     # Capa 1: parse directo
     try:
-        resultado = json.loads(contenido)
-        return _sanitizar_resultado_llm(resultado, defaults)
+        full = json.loads(contenido)
+        # Si tiene formato ComEM con paso_3_veredicto
+        veredicto = full.get("paso_3_veredicto", {})
+        if veredicto:
+            result = {
+                "es_mismo_producto": bool(veredicto.get("es_mismo_producto", False)),
+                "confidence_score": max(0.0, min(1.0, float(veredicto.get("confidence_score", 0.0)))),
+                "razon": str(veredicto.get("razon", ""))[:300],
+                "unidad_a": veredicto.get("unidad_a", ""),
+                "unidad_b": veredicto.get("unidad_b", ""),
+                "unidades_compatibles": veredicto.get("unidades_compatibles", True),
+            }
+            # Extraer diferencias críticas del paso 2
+            paso2 = full.get("paso_2_influencia", {})
+            result["diferencias_criticas"] = paso2.get("criticos_discrepantes", [])
+            # Guardar pasos completos para lineage
+            result["coem_steps"] = {
+                "paso_1": full.get("paso_1_tokens", {}),
+                "paso_2": paso2,
+            }
+            return result
+        # Fallback: formato plano
+        return _sanitizar_resultado_llm(full, defaults)
     except json.JSONDecodeError:
         pass
 
-    # Capa 2: extraer el primer objeto JSON del texto (el modelo a veces añade prosa)
-    match = re.search(r"\{[^{}]*\}", contenido, re.DOTALL)
+    # Capa 2: regex
+    match = re.search(r"\{[\s\S]*\}", contenido)
     if match:
         try:
             resultado = json.loads(match.group())
-            logger.debug("JSON extraído con regex del contenido LLM")
             return _sanitizar_resultado_llm(resultado, defaults)
         except json.JSONDecodeError:
             pass
 
-    logger.error("No se pudo parsear la respuesta del LLM: %r", contenido[:200])
+    logger.error("No se pudo parsear respuesta LLM: %r", contenido[:200])
     return defaults
 
 
 def _sanitizar_resultado_llm(resultado: dict, defaults: dict) -> dict:
-    """Garantiza tipos y rangos correctos en la respuesta parseada del LLM."""
     out = dict(defaults)
     out.update(resultado)
-    # Forzar tipo bool
     out["es_mismo_producto"] = bool(out.get("es_mismo_producto", False))
-    # Clampear confidence_score al rango [0, 1]
     try:
         score = float(out.get("confidence_score", 0.0))
         out["confidence_score"] = max(0.0, min(1.0, score))
     except (TypeError, ValueError):
         out["confidence_score"] = 0.0
-    # Garantizar string en razon
     out["razon"] = str(out.get("razon", ""))[:300]
     return out
 
 
 # ---------------------------------------------------------------------------
-# Pipeline principal de matching
+# Pipeline principal — ComEM con 5 capas
 # ---------------------------------------------------------------------------
 
 async def comparar_productos(
@@ -573,99 +591,231 @@ async def comparar_productos(
     query_original: str = "",
 ) -> MatchResult:
     """
-    Pipeline completo con detección automática de modo:
-    - Con API key válida → embeddings + LLM en zona gris
-    - Sin API key        → similitud textual Jaccard (instantáneo, sin costo)
+    Pipeline ComEM de 5 capas con observabilidad completa:
+      Capa 0: ETIM Taxonomy
+      Capa 1: Unit Normalizer (quantulum3 + pint)
+      Capa 2: Embeddings (cosine similarity)
+      Capa 3: LLM Chain-of-Thought (zona gris)
+      Capa 4: Jaccard Fallback
     """
+    t_pipeline_start = time.perf_counter()
+    lineage: dict = {"prompt_version": PROMPT_VERSION_TAG, "modelo": LLM_MODEL}
 
-    # ── MODO SIN API KEY (fallback textual) ───────────────────────────
-    if not _tiene_api_key_valida():
-        logger.info(
-            "Sin API key válida → usando similitud textual para (%s vs %s)",
-            producto_a.sku_proveedor, producto_b.sku_proveedor,
-        )
-        resultado = comparar_textualmente(producto_a, producto_b)
-        _guardar_comparacion(producto_a, producto_b, resultado, db)
-        return resultado
+    # ══════════════════════════════════════════════════════════════════
+    # CAPA 0: ETIM TAXONOMY — Rechazo rápido por clase de producto
+    # ══════════════════════════════════════════════════════════════════
+    t0 = time.perf_counter()
+    same_class, etim_reason = are_same_etim_class(producto_a.nombre_raw, producto_b.nombre_raw)
+    etim_lat = (time.perf_counter() - t0) * 1000
+    lineage["etim"] = {"same_class": same_class, "razon": etim_reason, "latencia_ms": round(etim_lat, 2)}
 
-    # ── Detección rápida de unidades incompatibles (aplica en ambos modos) ─
-    unidad_incompat = _detectar_unidad_incompatible(producto_a, producto_b)
-    if unidad_incompat:
-        logger.info(
-            "Unidades incompatibles detectadas (%s vs %s): %s",
-            producto_a.sku_proveedor, producto_b.sku_proveedor, unidad_incompat,
-        )
+    if not same_class:
+        logger.info("ETIM rechazo (%s vs %s): %s", producto_a.sku_proveedor, producto_b.sku_proveedor, etim_reason)
         resultado = MatchResult(
-            es_mismo_producto=False,
-            confidence_score=0.0,
-            similitud_coseno=0.0,
-            razon=f"Unidades incompatibles: {unidad_incompat}",
-            metodo="unidad_rechazo",
+            es_mismo_producto=False, confidence_score=0.0, similitud_coseno=0.0,
+            razon=f"Taxonomía ETIM: {etim_reason}", metodo="etim_rechazo",
+            latencia_ms=etim_lat, lineage=lineage,
         )
+        _guardar_comparacion(producto_a, producto_b, resultado, db)
+        _log_ai_call(db, "etim_classify", etim_lat, producto_a_id=producto_a.id,
+                     producto_b_id=producto_b.id, resultado_json=etim_reason)
+        return resultado
+
+    # Extraer diferencias de atributos ETIM para contexto LLM
+    etim_diffs = get_critical_attributes_diff(
+        producto_a.nombre_raw, producto_a.marca or "",
+        producto_b.nombre_raw, producto_b.marca or "",
+    )
+    etim_context = ""
+    if etim_diffs:
+        etim_context = f"DIFERENCIAS TÉCNICAS DETECTADAS: {', '.join(etim_diffs)}"
+
+    # ══════════════════════════════════════════════════════════════════
+    # CAPA 1: UNIT NORMALIZER — quantulum3 + pint
+    # ══════════════════════════════════════════════════════════════════
+    t0 = time.perf_counter()
+    unit_result: UnitComparisonResult = compare_units(
+        producto_a.nombre_raw, producto_a.unidad or "",
+        producto_b.nombre_raw, producto_b.unidad or "",
+        precio_a=producto_a.precio_oferta or producto_a.precio_clp or 0,
+        precio_b=producto_b.precio_oferta or producto_b.precio_clp or 0,
+    )
+    unit_lat = (time.perf_counter() - t0) * 1000
+    lineage["unit_check"] = {
+        "compatible": unit_result.compatible,
+        "razon": unit_result.razon,
+        "qty_a": unit_result.qty_a.surface_form if unit_result.qty_a else None,
+        "qty_b": unit_result.qty_b.surface_form if unit_result.qty_b else None,
+        "ratio": unit_result.ratio,
+        "latencia_ms": round(unit_lat, 2),
+    }
+
+    if not unit_result.compatible:
+        logger.info("Unit rechazo (%s vs %s): %s", producto_a.sku_proveedor, producto_b.sku_proveedor, unit_result.razon)
+        resultado = MatchResult(
+            es_mismo_producto=False, confidence_score=0.0, similitud_coseno=0.0,
+            razon=f"Unidades incompatibles: {unit_result.razon}", metodo="unidad_rechazo",
+            latencia_ms=etim_lat + unit_lat, lineage=lineage,
+        )
+        _guardar_comparacion(producto_a, producto_b, resultado, db)
+        _log_ai_call(db, "unit_parse", unit_lat, producto_a_id=producto_a.id,
+                     producto_b_id=producto_b.id, resultado_json=unit_result.razon)
+        return resultado
+
+    unit_context = f"ANÁLISIS DE UNIDADES: {unit_result.razon}"
+
+    # ══════════════════════════════════════════════════════════════════
+    # MODO SIN API KEY → Capa 4 (Jaccard Fallback)
+    # ══════════════════════════════════════════════════════════════════
+    if not _tiene_api_key_valida():
+        resultado = comparar_textualmente(producto_a, producto_b)
+        resultado.lineage = lineage
+        resultado.latencia_ms += etim_lat + unit_lat
         _guardar_comparacion(producto_a, producto_b, resultado, db)
         return resultado
 
-    # ── MODO CON API KEY (embeddings + LLM) ───────────────────────────
+    # ══════════════════════════════════════════════════════════════════
+    # CAPA 2: EMBEDDINGS — similitud coseno
+    # ══════════════════════════════════════════════════════════════════
+    t0 = time.perf_counter()
     try:
         vec_a = await generar_y_guardar_embedding(producto_a, db)
         vec_b = await generar_y_guardar_embedding(producto_b, db)
     except Exception as exc:
-        logger.warning("Embeddings fallaron, usando fallback textual: %s", exc)
+        logger.warning("Embeddings fallaron, fallback textual: %s", exc)
         resultado = comparar_textualmente(producto_a, producto_b)
+        resultado.lineage = lineage
         _guardar_comparacion(producto_a, producto_b, resultado, db)
         return resultado
 
     sim = similitud_coseno(vec_a, vec_b)
-    logger.debug(
-        "Similitud coseno (%s vs %s) = %.4f",
-        producto_a.sku_proveedor, producto_b.sku_proveedor, sim,
-    )
+    emb_lat = (time.perf_counter() - t0) * 1000
+    lineage["embedding"] = {"similitud_coseno": round(sim, 4), "latencia_ms": round(emb_lat, 2)}
 
     if sim >= UMBRAL_MATCH_DIRECTO:
+        total_lat = etim_lat + unit_lat + emb_lat
         resultado = MatchResult(
-            es_mismo_producto=True,
-            confidence_score=round(sim, 4),
+            es_mismo_producto=True, confidence_score=round(sim, 4),
             similitud_coseno=round(sim, 4),
-            razon=f"Alta similitud vectorial ({sim:.2%})",
-            metodo="vectorial",
+            razon=f"Alta similitud vectorial ({sim:.2%})", metodo="vectorial",
+            latencia_ms=total_lat, lineage=lineage,
         )
-    elif sim < UMBRAL_RECHAZO_DIRECTO:
+        _guardar_comparacion(producto_a, producto_b, resultado, db)
+        return resultado
+
+    if sim < UMBRAL_RECHAZO_DIRECTO:
+        total_lat = etim_lat + unit_lat + emb_lat
         resultado = MatchResult(
-            es_mismo_producto=False,
-            confidence_score=0.0,
+            es_mismo_producto=False, confidence_score=0.0,
             similitud_coseno=round(sim, 4),
-            razon=f"Baja similitud vectorial ({sim:.2%})",
-            metodo="rechazo_directo",
+            razon=f"Baja similitud vectorial ({sim:.2%})", metodo="rechazo_directo",
+            latencia_ms=total_lat, lineage=lineage,
         )
-    else:
-        logger.info(
-            "Zona gris (sim=%.4f) → consultando LLM para (%s vs %s)",
-            sim, producto_a.sku_proveedor, producto_b.sku_proveedor,
+        _guardar_comparacion(producto_a, producto_b, resultado, db)
+        return resultado
+
+    # ══════════════════════════════════════════════════════════════════
+    # CAPA 3: LLM Chain-of-Thought (zona gris 0.60 - 0.92)
+    # ══════════════════════════════════════════════════════════════════
+    logger.info("Zona gris (sim=%.4f) → LLM CoT para (%s vs %s)",
+                sim, producto_a.sku_proveedor, producto_b.sku_proveedor)
+    try:
+        llm_r = await evaluar_con_llm(
+            producto_a, producto_b,
+            query_original=query_original,
+            etim_context=etim_context,
+            unit_context=unit_context,
+            db=db,
         )
-        try:
-            llm_r = await evaluar_con_llm(producto_a, producto_b, query_original=query_original)
-            confidence = float(llm_r.get("confidence_score", 0.0))
-            es_match = llm_r.get("es_mismo_producto", False) and confidence >= UMBRAL_LLM_MATCH
-            resultado = MatchResult(
-                es_mismo_producto=es_match,
-                confidence_score=round(confidence, 4),
-                similitud_coseno=round(sim, 4),
-                razon=llm_r.get("razon", ""),
-                metodo="llm",
-                tokens_usados=llm_r.get("tokens_usados", 0),
-            )
-        except Exception as exc:
-            logger.error("LLM falló en zona gris: %s — fallback textual", exc)
-            resultado = comparar_textualmente(producto_a, producto_b)
-            resultado.similitud_coseno = round(sim, 4)
-            resultado.metodo = "vectorial_fallback_textual"
+        confidence = float(llm_r.get("confidence_score", 0.0))
+        es_match = llm_r.get("es_mismo_producto", False) and confidence >= UMBRAL_LLM_MATCH
+
+        llm_lat = llm_r.get("latencia_ms", 0)
+        total_lat = etim_lat + unit_lat + emb_lat + llm_lat
+        total_cost = llm_r.get("costo_usd", 0)
+
+        lineage["llm"] = {
+            "confidence": confidence,
+            "es_match": es_match,
+            "metodo": "coem_cot_3step",
+            "tokens": llm_r.get("tokens_usados", 0),
+            "latencia_ms": round(llm_lat, 2),
+            "costo_usd": round(total_cost, 8),
+            "coem_steps": llm_r.get("coem_steps", {}),
+        }
+
+        resultado = MatchResult(
+            es_mismo_producto=es_match,
+            confidence_score=round(confidence, 4),
+            similitud_coseno=round(sim, 4),
+            razon=llm_r.get("razon", ""),
+            metodo="llm_coem",
+            tokens_usados=llm_r.get("tokens_usados", 0),
+            latencia_ms=total_lat,
+            costo_usd=total_cost,
+            lineage=lineage,
+        )
+    except Exception as exc:
+        logger.error("LLM falló en zona gris: %s — fallback textual", exc)
+        resultado = comparar_textualmente(producto_a, producto_b)
+        resultado.similitud_coseno = round(sim, 4)
+        resultado.metodo = "vectorial_fallback_textual"
+        resultado.lineage = lineage
 
     _guardar_comparacion(producto_a, producto_b, resultado, db)
     return resultado
 
 
 # ---------------------------------------------------------------------------
-# Persistencia de comparación
+# Global Consistency — Select Strategy (para N candidatos)
+# ---------------------------------------------------------------------------
+
+async def seleccionar_mejor_par(
+    candidatos_a: list[ProductoProveedor],
+    candidatos_b: list[ProductoProveedor],
+    query: str,
+    db: Session,
+    top_k: int = 3,
+) -> tuple[Optional[ProductoProveedor], Optional[ProductoProveedor], Optional[MatchResult]]:
+    """
+    Estrategia Select de ComEM: en lugar de comparar solo el top-1 de cada proveedor,
+    evalúa una matriz de top_k × top_k candidatos y selecciona el mejor par global.
+
+    Esto evita inconsistencias donde el top-1 por Jaccard no es el mejor match real.
+    """
+    if not candidatos_a or not candidatos_b:
+        return None, None, None
+
+    # Pre-filtrar por relevancia al query
+    def _relevancia(p: ProductoProveedor) -> float:
+        return similitud_textual(query, p.nombre_raw)
+
+    top_a = sorted(candidatos_a, key=_relevancia, reverse=True)[:top_k]
+    top_b = sorted(candidatos_b, key=_relevancia, reverse=True)[:top_k]
+
+    # Evaluar todos los pares (máx top_k² = 9 comparaciones)
+    mejor_par: tuple = (None, None, None)
+    mejor_score: float = -1
+
+    for a in top_a:
+        for b in top_b:
+            try:
+                result = await comparar_productos(a, b, db, query_original=query)
+                if result.es_mismo_producto and result.confidence_score > mejor_score:
+                    mejor_score = result.confidence_score
+                    mejor_par = (a, b, result)
+            except Exception as exc:
+                logger.warning("Error comparando par (%s, %s): %s", a.sku_proveedor, b.sku_proveedor, exc)
+
+    # Si no hubo match, retornar el par con mayor similitud para al menos mostrar algo
+    if mejor_par[2] is None and top_a and top_b:
+        return top_a[0], top_b[0], None
+
+    return mejor_par
+
+
+# ---------------------------------------------------------------------------
+# Persistencia de comparación (con lineage)
 # ---------------------------------------------------------------------------
 
 def _guardar_comparacion(
@@ -680,12 +830,17 @@ def _guardar_comparacion(
     if producto_a.precio_clp and producto_b.precio_clp and producto_b.precio_clp > 0:
         diff_pct = abs(producto_a.precio_clp - producto_b.precio_clp) / producto_b.precio_clp * 100
 
+    razon_json = json.dumps({
+        "razon": resultado.razon,
+        "metodo": resultado.metodo,
+    }, ensure_ascii=False)
+
+    lineage_str = json.dumps(resultado.lineage, ensure_ascii=False, default=str) if resultado.lineage else None
+
     existente = db.query(ComparacionPrecios).filter_by(
         producto_a_id=producto_a.id,
         producto_b_id=producto_b.id,
     ).first()
-
-    razon_json = json.dumps({"razon": resultado.razon, "metodo": resultado.metodo}, ensure_ascii=False)
 
     if existente:
         existente.confidence_score = resultado.confidence_score
@@ -693,6 +848,12 @@ def _guardar_comparacion(
         existente.precio_diff_pct = diff_pct
         existente.precio_minimo = precio_min
         existente.proveedor_minimo = proveedor_min
+        existente.prompt_version = PROMPT_VERSION_TAG
+        existente.modelo_usado = LLM_MODEL
+        existente.latencia_total_ms = resultado.latencia_ms
+        existente.tokens_totales = resultado.tokens_usados
+        existente.costo_usd = resultado.costo_usd
+        existente.lineage_json = lineage_str
     else:
         db.add(ComparacionPrecios(
             canonical_id=producto_a.canonical_id or producto_b.canonical_id,
@@ -705,13 +866,18 @@ def _guardar_comparacion(
             precio_diff_pct=diff_pct,
             precio_minimo=precio_min,
             proveedor_minimo=proveedor_min,
+            prompt_version=PROMPT_VERSION_TAG,
+            modelo_usado=LLM_MODEL,
+            latencia_total_ms=resultado.latencia_ms,
+            tokens_totales=resultado.tokens_usados,
+            costo_usd=resultado.costo_usd,
+            lineage_json=lineage_str,
         ))
     db.commit()
 
 
 def _calcular_minimo(
-    a: ProductoProveedor,
-    b: ProductoProveedor,
+    a: ProductoProveedor, b: ProductoProveedor,
 ) -> tuple[Optional[float], Optional[NombreProveedor]]:
     pa = a.precio_oferta or a.precio_clp
     pb = b.precio_oferta or b.precio_clp
@@ -733,33 +899,23 @@ async def obtener_o_crear_canonical(
     productos_encontrados: list[ProductoProveedor],
     db: Session,
 ) -> ProductoCanonical:
-    """
-    Crea o recupera el ProductoCanonical que agrupa los productos.
-    Con API key → usa embeddings para deduplicar canonicals.
-    Sin API key → usa similitud textual como fallback.
-    """
     nombre_normalizado = nombre_query.strip().lower()
 
-    # ── Sin API key: buscar canonical existente por texto ─────────────
     if not _tiene_api_key_valida():
         canonicals = db.query(ProductoCanonical).all()
         for c in canonicals:
             sim = similitud_textual(nombre_normalizado, c.nombre_normalizado)
             if sim >= 0.75:
-                logger.info("Canonical textual reutilizado: id=%d sim=%.4f", c.id, sim)
                 _asociar_productos_a_canonical(productos_encontrados, c, db)
                 return c
 
-        # Crear nuevo
         canonical = ProductoCanonical(nombre_normalizado=nombre_normalizado[:300])
         db.add(canonical)
         db.flush()
         _asociar_productos_a_canonical(productos_encontrados, canonical, db)
         db.commit()
-        logger.info("Nuevo canonical (sin IA): id=%d nombre='%s'", canonical.id, nombre_normalizado)
         return canonical
 
-    # ── Con API key: usar embeddings ──────────────────────────────────
     vec_query = None
     try:
         emb = await generar_embedding(nombre_normalizado)
@@ -777,7 +933,6 @@ async def obtener_o_crear_canonical(
             if similares:
                 cid, score = similares[0]
                 canonical = db.query(ProductoCanonical).get(cid)
-                logger.info("Canonical existente reutilizado: id=%d score=%.4f", cid, score)
                 _asociar_productos_a_canonical(productos_encontrados, canonical, db)
                 return canonical
 
@@ -789,7 +944,6 @@ async def obtener_o_crear_canonical(
     db.flush()
     _asociar_productos_a_canonical(productos_encontrados, canonical, db)
     db.commit()
-    logger.info("Nuevo canonical: id=%d nombre='%s'", canonical.id, nombre_normalizado)
     return canonical
 
 

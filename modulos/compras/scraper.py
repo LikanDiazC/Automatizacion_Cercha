@@ -187,6 +187,62 @@ async def _human_delay(min_ms: int = 300, max_ms: int = 1000) -> None:
     await asyncio.sleep(random.uniform(min_ms / 1000, max_ms / 1000))
 
 
+def _extraer_next_f_push(html: str) -> Optional[Any]:
+    """
+    Extrae datos de hidratación de Next.js App Router (self.__next_f.push).
+
+    Next.js App Router transmite datos como:
+      <script>self.__next_f.push([1,"...JSON_PAYLOAD..."])</script>
+
+    Esto es común cuando el sitio usa RSC (React Server Components)
+    y __NEXT_DATA__ está vacío o ausente.
+    """
+    # Buscar todos los chunks de next_f.push
+    patron = re.compile(r'self\.__next_f\.push\(\[(\d+),\s*"((?:[^"\\]|\\.)*)"\]\)', re.DOTALL)
+    matches = patron.findall(html)
+
+    if not matches:
+        return None
+
+    logger.debug("Encontrados %d chunks de self.__next_f.push", len(matches))
+
+    # Concatenar payloads de texto (type=1 son datos, type=0 son metadatos)
+    data_chunks = []
+    for chunk_type, payload in matches:
+        if chunk_type == "1":
+            # Desescapar el string
+            try:
+                unescaped = payload.encode().decode('unicode_escape')
+                data_chunks.append(unescaped)
+            except Exception:
+                data_chunks.append(payload)
+
+    if not data_chunks:
+        return None
+
+    # Buscar JSON válido dentro de los chunks
+    combined = "".join(data_chunks)
+    productos_encontrados = []
+
+    # Buscar objetos JSON que parezcan productos
+    for m in re.finditer(r'\{[^{}]{50,}\}', combined):
+        try:
+            obj = json.loads(m.group())
+            if isinstance(obj, dict):
+                keys = obj.keys()
+                if any(k in keys for k in ["productId", "skuId", "id"]) and \
+                   any(k in keys for k in ["productName", "displayName", "name"]):
+                    productos_encontrados.append(obj)
+        except json.JSONDecodeError:
+            continue
+
+    if productos_encontrados:
+        logger.info("self.__next_f.push: %d productos extraídos", len(productos_encontrados))
+        return productos_encontrados
+
+    return None
+
+
 # ---------------------------------------------------------------------------
 # ════════════════════════════════════════════════════════════════════════════
 #  SCRAPER SODIMAC  ←  NO TOCAR — FUNCIONA PERFECTO
@@ -218,17 +274,28 @@ class SodimacScraper:
             )
 
             if not match:
-                dump_scraper_data(
-                    query=query, proveedor="Sodimac", metodo="next_data",
-                    items_crudos=[], productos_finales=[],
-                    duracion_seg=round(asyncio.get_event_loop().time() - inicio, 2),
-                    error_msg="__NEXT_DATA__ no encontrado en HTML",
-                    extra={"html_length": len(html), "url": url},
-                )
-                return ResultadoScraper(
-                    self.proveedor, EstadoScraping.ERROR,
-                    error_msg="__NEXT_DATA__ no encontrado",
-                )
+                # Fallback: buscar self.__next_f.push hydration chunks (App Router)
+                print(f"[Sodimac] __NEXT_DATA__ no encontrado, intentando self.__next_f.push...")
+                next_f_data = _extraer_next_f_push(html)
+                if next_f_data:
+                    _aspirar_productos(next_f_data, productos_crudos := [])
+                    if productos_crudos:
+                        print(f"[Sodimac] self.__next_f.push: {len(productos_crudos)} productos encontrados")
+                        match = True  # Flag para continuar con el flujo normal
+                        json_data = next_f_data
+
+                if not match:
+                    dump_scraper_data(
+                        query=query, proveedor="Sodimac", metodo="next_data",
+                        items_crudos=[], productos_finales=[],
+                        duracion_seg=round(asyncio.get_event_loop().time() - inicio, 2),
+                        error_msg="__NEXT_DATA__ y self.__next_f.push no encontrados",
+                        extra={"html_length": len(html), "url": url},
+                    )
+                    return ResultadoScraper(
+                        self.proveedor, EstadoScraping.ERROR,
+                        error_msg="__NEXT_DATA__ no encontrado",
+                    )
 
             json_data = json.loads(match.group(1))
             productos_crudos: list = []
@@ -255,6 +322,27 @@ class SodimacScraper:
                     url_str = "https://www.sodimac.cl" + url_str
                 img = _encontrar_imagen(item) or f"https://media.falabella.com/sodimacCL/{sku}/public"
 
+                # Extraer unidad de venta de __NEXT_DATA__
+                unidad = (
+                    str(item.get("sellUnit") or item.get("unitName") or
+                        item.get("unitOfMeasure") or "")[:60] or None
+                )
+                # Buscar en specifications si no se encontró
+                if not unidad:
+                    specs = item.get("specifications") or item.get("attributes") or {}
+                    if isinstance(specs, dict):
+                        for k in ("sellUnit", "unitOfMeasure", "Unidad", "Unidad de venta"):
+                            if k in specs:
+                                unidad = str(specs[k])[:60]
+                                break
+                    elif isinstance(specs, list):
+                        for spec in specs:
+                            if isinstance(spec, dict):
+                                spec_name = str(spec.get("name") or spec.get("key") or "").lower()
+                                if "unidad" in spec_name or "unit" in spec_name:
+                                    unidad = str(spec.get("value") or spec.get("values", [""])[0])[:60]
+                                    break
+
                 productos.append(
                     ProductoProveedorCreate(
                         proveedor=self.proveedor,
@@ -263,6 +351,7 @@ class SodimacScraper:
                         nombre_raw=nombre[:400],
                         marca=str(item.get("brandName") or "")[:120] or None,
                         precio_clp=precio_clp,
+                        unidad=unidad,
                         imagen_url=img,
                         disponible=True,
                     )
@@ -656,6 +745,27 @@ class EasyScraper:
             # Marca
             marca = str(item.get("brand") or "").strip() or None
 
+            # Unidad de venta — buscar en campos Easy Next.js
+            unidad = (
+                str(item.get("sellUnit") or item.get("unitOfMeasure") or
+                    item.get("unitName") or "").strip()[:60] or None
+            )
+            if not unidad:
+                # Buscar en specifications/attributes
+                specs = item.get("specifications") or item.get("attributes") or {}
+                if isinstance(specs, dict):
+                    for k in ("sellUnit", "unitOfMeasure", "Unidad", "Unidad de venta"):
+                        if k in specs:
+                            unidad = str(specs[k])[:60]
+                            break
+                elif isinstance(specs, list):
+                    for spec in specs:
+                        if isinstance(spec, dict):
+                            sn = str(spec.get("name") or spec.get("key") or "").lower()
+                            if "unidad" in sn or "unit" in sn:
+                                unidad = str(spec.get("value") or "")[:60]
+                                break
+
             try:
                 productos.append(
                     ProductoProveedorCreate(
@@ -665,6 +775,7 @@ class EasyScraper:
                         nombre_raw=nombre[:400],
                         marca=marca,
                         precio_clp=float(precio),
+                        unidad=unidad,
                         imagen_url=imagen or None,
                         disponible=True,
                     )

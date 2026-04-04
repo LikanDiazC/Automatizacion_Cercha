@@ -49,6 +49,36 @@ async def lifespan(app: FastAPI):
 
     Base.metadata.create_all(bind=engine)
 
+    # ── Migración inline: agregar columnas nuevas a tablas existentes ──
+    # SQLAlchemy create_all() solo crea tablas nuevas, no altera existentes.
+    # Estas ALTER TABLE son idempotentes (se ignoran si la columna ya existe).
+    _migrate_columns = [
+        # ComparacionPrecios — observabilidad IA
+        ("comparaciones_precios", "prompt_version", "VARCHAR(60)"),
+        ("comparaciones_precios", "modelo_usado", "VARCHAR(60)"),
+        ("comparaciones_precios", "latencia_total_ms", "FLOAT"),
+        ("comparaciones_precios", "tokens_totales", "INTEGER"),
+        ("comparaciones_precios", "costo_usd", "FLOAT"),
+        ("comparaciones_precios", "lineage_json", "TEXT"),
+        ("comparaciones_precios", "etim_class_code", "VARCHAR(20)"),
+        # ProductoProveedor — unit normalizer + ETIM
+        ("productos_proveedor", "unidad_normalizada", "VARCHAR(120)"),
+        ("productos_proveedor", "etim_class_code", "VARCHAR(20)"),
+    ]
+    with engine.connect() as conn:
+        for table, column, col_type in _migrate_columns:
+            try:
+                conn.execute(
+                    __import__("sqlalchemy").text(
+                        f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"
+                    )
+                )
+                conn.commit()
+                logger.info("Migración: agregada columna %s.%s", table, column)
+            except Exception:
+                # La columna ya existe — ignorar silenciosamente
+                conn.rollback()
+
     # Iniciar scheduler de sync de precios en segundo plano
     try:
         from core.scheduler import iniciar_scheduler

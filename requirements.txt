@@ -13,3 +13,6 @@ camoufox[geoip]
 curl_cffi
 slowapi>=0.1.9
 apscheduler>=3.10.0
+# ── IA / Normalización de unidades ──
+quantulum3>=0.9.0
+pint>=0.24
