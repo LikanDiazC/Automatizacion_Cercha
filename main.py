@@ -28,6 +28,10 @@ from modulos.compras import models as compras_models  # noqa: F401
 from modulos.compras.router import router as compras_router
 from modulos.crm import models as crm_models  # noqa: F401
 from modulos.crm.router import router as crm_router
+from modulos.crm.inbox_router import router as crm_inbox_router
+from modulos.auth import models as auth_models  # noqa: F401
+from modulos.auth.router import router as auth_router
+from core.security import SecurityHeadersMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +68,15 @@ async def lifespan(app: FastAPI):
         # ProductoProveedor — unit normalizer + ETIM
         ("productos_proveedor", "unidad_normalizada", "VARCHAR(120)"),
         ("productos_proveedor", "etim_class_code", "VARCHAR(20)"),
+        # CRM Inbox sync — nuevas columnas multi-tenant
+        ("empresas", "user_id", "INTEGER"),
+        ("empresas", "dominio_email", "VARCHAR(120)"),
+        ("empresas", "origen_inbox", "BOOLEAN DEFAULT 0"),
+        ("contactos", "user_id", "INTEGER"),
+        ("contactos", "es_personal", "BOOLEAN DEFAULT 0"),
+        ("contactos", "origen_inbox", "BOOLEAN DEFAULT 0"),
+        ("contactos", "frecuencia_emails", "INTEGER DEFAULT 0"),
+        ("contactos", "ultimo_email_at", "DATETIME"),
     ]
     with engine.connect() as conn:
         for table, column, col_type in _migrate_columns:
@@ -115,13 +128,19 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# --- CORS ---
+# --- Security headers ---
+app.add_middleware(SecurityHeadersMiddleware)
+
+# --- CORS (endurecido) ---
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With",
+                   "X-Admin-User", "X-Admin-Token"],
+    expose_headers=["Content-Disposition"],
+    max_age=600,
 )
 
 
@@ -147,6 +166,8 @@ app.include_router(mrp_router.router)
 app.include_router(ordenes_router.router)
 app.include_router(compras_router)
 app.include_router(crm_router)
+app.include_router(crm_inbox_router)
+app.include_router(auth_router)
 
 
 # Información mínima — sin revelar el stack tecnológico completo

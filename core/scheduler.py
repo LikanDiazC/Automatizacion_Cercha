@@ -125,6 +125,32 @@ async def _tarea_sync_precios():
 # Tarea: Cleanup de datos antiguos
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Tarea: Sync de inbox OAuth (Gmail / Microsoft) para todos los usuarios
+# ---------------------------------------------------------------------------
+
+async def _tarea_sync_inbox():
+    """
+    Sincroniza la bandeja de entrada de todos los usuarios con sync habilitado.
+    Ejecuta en segundo plano, jamás lanza excepciones hacia el scheduler.
+    """
+    logger.info("=== SYNC INBOX INICIADO ===")
+    db = SessionLocal()
+    try:
+        from modulos.crm.inbox_sync_service import sincronizar_todos_los_usuarios
+        resumen = await sincronizar_todos_los_usuarios(db)
+        logger.info(
+            "=== SYNC INBOX COMPLETADO: ok=%d err=%d nuevos=%d ===",
+            resumen.get("ok", 0),
+            resumen.get("errores", 0),
+            resumen.get("nuevos_total", 0),
+        )
+    except Exception as exc:
+        logger.error("Error en sync inbox: %s", exc, exc_info=True)
+    finally:
+        db.close()
+
+
 async def _tarea_cleanup():
     """Limpia datos de scraping con más de 30 días."""
     from datetime import timedelta
@@ -178,6 +204,16 @@ def iniciar_scheduler(
         name="Sync de precios del catálogo",
         replace_existing=True,
         max_instances=1,  # No ejecutar en paralelo
+    )
+
+    # Sync de inbox OAuth cada 10 minutos (multi-usuario)
+    _scheduler.add_job(
+        _tarea_sync_inbox,
+        trigger=IntervalTrigger(minutes=10),
+        id="sync_inbox",
+        name="Sync de bandeja de entrada OAuth",
+        replace_existing=True,
+        max_instances=1,
     )
 
     # Cleanup diario a las 3:00 AM

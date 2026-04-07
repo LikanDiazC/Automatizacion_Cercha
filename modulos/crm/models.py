@@ -149,6 +149,12 @@ class Empresa(Base):
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+    # ── Inbox sync (nuevo) ──
+    # Cada usuario tiene sus propias empresas detectadas (multi-tenant).
+    user_id          = Column(Integer, ForeignKey("auth_users.id"), nullable=True, index=True)
+    dominio_email    = Column(String(120), nullable=True, index=True)  # "empresa.cl"
+    origen_inbox     = Column(Boolean, default=False, nullable=False)
+
     # Relaciones
     contactos       = relationship("Contacto", back_populates="empresa", cascade="all, delete-orphan")
     deals           = relationship("Deal", back_populates="empresa")
@@ -181,6 +187,13 @@ class Contacto(Base):
 
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # ── Inbox sync (nuevo) ──
+    user_id            = Column(Integer, ForeignKey("auth_users.id"), nullable=True, index=True)
+    es_personal        = Column(Boolean, default=False, nullable=False)  # gmail/outlook/etc
+    origen_inbox       = Column(Boolean, default=False, nullable=False)
+    frecuencia_emails  = Column(Integer, default=0, nullable=False)
+    ultimo_email_at    = Column(DateTime, nullable=True)
 
     # Relaciones
     empresa         = relationship("Empresa", back_populates="contactos")
@@ -487,3 +500,69 @@ class Cotizacion(Base):
     deal            = relationship("Deal")
     contacto        = relationship("Contacto")
     empresa         = relationship("Empresa")
+
+
+# ---------------------------------------------------------------------------
+# EmailInbox — Bandeja de entrada sincronizada vía OAuth (Gmail / Microsoft)
+# ---------------------------------------------------------------------------
+
+class EmailInbox(Base):
+    """
+    Correo recibido sincronizado desde Gmail API o Microsoft Graph.
+
+    Multi-tenant: cada fila pertenece a un `user_id`. Todas las queries
+    DEBEN filtrar por `user_id` para evitar fugas entre usuarios.
+
+    Seguridad:
+      - `body_html_safe` ya pasó por `sanitize_email_html` (bleach whitelist).
+      - Nunca almacenamos tokens OAuth aquí (viven cifrados en oauth_tokens).
+      - `message_id_remoto` es único por usuario (idempotencia de sync).
+    """
+    __tablename__ = "emails_inbox"
+
+    id                  = Column(Integer, primary_key=True, index=True)
+    user_id             = Column(
+        Integer,
+        ForeignKey("auth_users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Proveedor y IDs remotos
+    proveedor           = Column(String(20), nullable=False)  # "google" | "microsoft"
+    message_id_remoto   = Column(String(255), nullable=False, index=True)
+    thread_id_remoto    = Column(String(255), nullable=True, index=True)
+
+    # Remitente / destinatarios
+    remitente_email     = Column(String(200), nullable=False, index=True)
+    remitente_nombre    = Column(String(200))
+    destinatarios       = Column(Text)  # JSON array serializado
+    cc                  = Column(Text)  # JSON array serializado
+
+    # Contenido
+    asunto              = Column(String(500))
+    snippet             = Column(Text)          # preview corto
+    body_html_safe      = Column(Text)          # sanitizado con bleach
+    body_text           = Column(Text)          # plaintext fallback
+
+    # Estado
+    leido               = Column(Boolean, default=False, nullable=False)
+    importante          = Column(Boolean, default=False, nullable=False)
+    carpeta             = Column(String(50), default="inbox", index=True)
+    labels_json         = Column(Text, default="[]")
+
+    # Vinculación CRM
+    contacto_id         = Column(Integer, ForeignKey("contactos.id"), nullable=True, index=True)
+
+    # Fechas
+    recibido_at         = Column(DateTime, nullable=False, index=True)
+    created_at          = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relaciones
+    contacto            = relationship("Contacto")
+
+    __table_args__ = (
+        Index("ux_inbox_user_msgid", "user_id", "message_id_remoto", unique=True),
+        Index("ix_inbox_user_recibido", "user_id", "recibido_at"),
+        Index("ix_inbox_user_remitente", "user_id", "remitente_email"),
+    )

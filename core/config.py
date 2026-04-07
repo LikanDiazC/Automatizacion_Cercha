@@ -52,6 +52,39 @@ class Settings(BaseSettings):
     smtp_from_name: str = "Cercha ERP"
     smtp_use_tls:   bool = True
     app_base_url:   str = "http://localhost:8000"
+    frontend_base_url: str = "http://localhost:5173"
+
+    # ── OAuth2 — Google ──
+    google_oauth_client_id:     str = ""
+    google_oauth_client_secret: str = ""
+    google_oauth_redirect_uri:  str = "http://localhost:8000/api/auth/callback/google"
+
+    # ── OAuth2 — Microsoft ──
+    microsoft_oauth_client_id:     str = ""
+    microsoft_oauth_client_secret: str = ""
+    microsoft_oauth_tenant:        str = "common"  # "common" acepta personal + work
+    microsoft_oauth_redirect_uri:  str = "http://localhost:8000/api/auth/callback/microsoft"
+
+    # ── JWT (sesión interna del ERP) ──
+    # Si no se setea, se autogenera al inicio (NO recomendado para prod, pero
+    # útil en dev para no romper el arranque). En prod hay que setearlo.
+    jwt_secret_key:        str = ""
+    jwt_algorithm:         str = "HS256"
+    jwt_access_ttl_min:    int = 15
+    jwt_refresh_ttl_days:  int = 30
+
+    # ── Encriptación de tokens OAuth en BD (Fernet AES-128) ──
+    inbox_encryption_key:  str = ""
+
+    # ── Inbox sync ──
+    inbox_sync_enabled:           bool = True
+    inbox_sync_intervalo_minutos: int  = 10
+    inbox_sync_limite_por_run:    int  = 100
+
+    # ── Cookies / seguridad ──
+    cookie_secure:    bool = False  # ⚠ True en producción (requiere HTTPS)
+    cookie_samesite:  str  = "lax"  # "lax" | "strict" | "none"
+    cookie_domain:    str  = ""
 
 
 @lru_cache(maxsize=1)

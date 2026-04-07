@@ -1,9 +1,16 @@
 import { useState, useContext } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Link,
+  useLocation,
+  Navigate,
+} from 'react-router-dom';
 import {
   Box, Typography, ThemeProvider, createTheme, CssBaseline,
-  Button, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Divider, Alert, Collapse, IconButton, Tooltip,
+  Button, Chip, Divider, Collapse, IconButton, Tooltip, Avatar,
+  CircularProgress, Menu, MenuItem,
 } from '@mui/material';
 
 import Inventario from './pages/Inventario';
@@ -12,14 +19,17 @@ import Ordenes from './pages/Ordenes';
 import Pendientes from './pages/Pendientes';
 import Cotizador from './pages/Cotizador';
 import CRM from './pages/CRM';
+import CRMInbox from './pages/CRMInbox';
 import Precios from './pages/Precios';
 import AdminComparaciones from './pages/AdminComparaciones';
+import LoginPage from './pages/LoginPage';
+import AuthSuccess from './pages/AuthSuccess';
 import { AdminContext } from './context/adminContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 // ---------------------------------------------------------------------------
-// Theme — HubSpot-inspired (#f6f9fc background, clean blues)
+// Theme — HubSpot-inspired
 // ---------------------------------------------------------------------------
-
 const theme = createTheme({
   palette: {
     mode: 'light',
@@ -47,42 +57,38 @@ const theme = createTheme({
 });
 
 // ---------------------------------------------------------------------------
-// Navigation config — grouped sections (HubSpot style)
+// Navigation config
 // ---------------------------------------------------------------------------
-
 const navSections = [
   {
-    title: 'Produccion',
-    icon: '🏭',
+    title: 'Produccion', icon: '🏭',
     items: [
-      { to: '/',           label: 'Inventario',  caption: 'Materiales y stock',  icon: '📦' },
-      { to: '/cortes',     label: 'Cortes',      caption: 'Optimizacion de corte', icon: '✂️' },
-      { to: '/ordenes',    label: 'Ordenes',     caption: 'Trabajo y recursos',  icon: '📋' },
-      { to: '/pendientes', label: 'Pendientes',  caption: 'Prioridades',         icon: '⏳' },
+      { to: '/',           label: 'Inventario',  caption: 'Materiales y stock',     icon: '📦' },
+      { to: '/cortes',     label: 'Cortes',      caption: 'Optimizacion de corte',  icon: '✂️' },
+      { to: '/ordenes',    label: 'Ordenes',     caption: 'Trabajo y recursos',     icon: '📋' },
+      { to: '/pendientes', label: 'Pendientes',  caption: 'Prioridades',            icon: '⏳' },
     ],
   },
   {
-    title: 'Compras',
-    icon: '🛒',
+    title: 'Compras', icon: '🛒',
     items: [
-      { to: '/cotizador',  label: 'Cotizador',   caption: 'Comparar proveedores', icon: '🔍' },
-      { to: '/precios',    label: 'Precios',     caption: 'Historial y alertas',  icon: '📊' },
-      { to: '/admin-ia',   label: 'Monitor IA',  caption: 'Diagnostico matching', icon: '🧠' },
+      { to: '/cotizador',  label: 'Cotizador',   caption: 'Comparar proveedores',  icon: '🔍' },
+      { to: '/precios',    label: 'Precios',     caption: 'Historial y alertas',   icon: '📊' },
+      { to: '/admin-ia',   label: 'Monitor IA',  caption: 'Diagnostico matching',  icon: '🧠' },
     ],
   },
   {
-    title: 'Ventas',
-    icon: '💼',
+    title: 'Ventas', icon: '💼',
     items: [
-      { to: '/crm',        label: 'CRM',         caption: 'Deals y clientes',    icon: '🤝' },
+      { to: '/crm',        label: 'CRM',         caption: 'Deals y clientes',      icon: '🤝' },
+      { to: '/crm/inbox',  label: 'Bandeja',     caption: 'Correo y contactos',    icon: '📬' },
     ],
   },
 ];
 
 // ---------------------------------------------------------------------------
-// NavItem — individual link
+// NavItem
 // ---------------------------------------------------------------------------
-
 const NavItem = ({ to, label, caption, icon }) => {
   const location = useLocation();
   const isActive = location.pathname === to;
@@ -115,10 +121,6 @@ const NavItem = ({ to, label, caption, icon }) => {
     </Box>
   );
 };
-
-// ---------------------------------------------------------------------------
-// NavSection — collapsible section group
-// ---------------------------------------------------------------------------
 
 const NavSection = ({ section, defaultOpen = true }) => {
   const [open, setOpen] = useState(defaultOpen);
@@ -159,10 +161,6 @@ const NavSection = ({ section, defaultOpen = true }) => {
   );
 };
 
-// ---------------------------------------------------------------------------
-// CollapsedNavIcon — icon-only nav item for collapsed sidebar
-// ---------------------------------------------------------------------------
-
 const CollapsedNavIcon = ({ to, label, icon }) => {
   const location = useLocation();
   const isActive = location.pathname === to;
@@ -186,11 +184,74 @@ const CollapsedNavIcon = ({ to, label, icon }) => {
 };
 
 // ---------------------------------------------------------------------------
-// AppMain — Layout with sidebar + content
+// UserMenu — avatar + nombre + dropdown con logout
 // ---------------------------------------------------------------------------
+function UserMenu({ collapsed }) {
+  const { user, logout } = useAuth();
+  const [anchor, setAnchor] = useState(null);
+  if (!user) return null;
 
+  const initials = (user.nombre || user.email || '?')
+    .split(' ')
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+  return (
+    <>
+      <Box
+        onClick={(e) => setAnchor(e.currentTarget)}
+        sx={{
+          display: 'flex', alignItems: 'center', gap: 1.2,
+          p: 1, borderRadius: 2, cursor: 'pointer',
+          '&:hover': { backgroundColor: 'rgba(31,58,95,0.06)' },
+          justifyContent: collapsed ? 'center' : 'flex-start',
+        }}
+      >
+        <Avatar
+          src={user.avatar_url || undefined}
+          sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: '0.85rem' }}
+        >
+          {initials}
+        </Avatar>
+        {!collapsed && (
+          <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {user.nombre || user.email}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.62rem', lineHeight: 1.1 }}>
+              {user.is_admin ? 'Administrador' : user.email}
+            </Typography>
+          </Box>
+        )}
+      </Box>
+      <Menu
+        anchorEl={anchor}
+        open={Boolean(anchor)}
+        onClose={() => setAnchor(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem disabled>
+          <Box>
+            <Typography variant="body2" fontWeight={600}>{user.nombre}</Typography>
+            <Typography variant="caption" color="text.secondary">{user.email}</Typography>
+          </Box>
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => { setAnchor(null); logout(); }}>
+          Cerrar sesión
+        </MenuItem>
+      </Menu>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AppMain — Layout autenticado
+// ---------------------------------------------------------------------------
 function AppMain() {
-  const { isAdmin, openAdminDialog, logoutAdmin } = useContext(AdminContext);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
@@ -198,7 +259,7 @@ function AppMain() {
       minHeight: '100vh', height: '100vh', overflow: 'hidden',
       display: 'flex', flexDirection: { xs: 'column', md: 'row' },
     }}>
-      {/* ---- SIDEBAR ---- */}
+      {/* SIDEBAR */}
       <Box sx={{
         width: { xs: '100%', md: sidebarCollapsed ? 60 : 260 },
         minWidth: { md: sidebarCollapsed ? 60 : 260 },
@@ -211,7 +272,6 @@ function AppMain() {
         display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
       }}>
-        {/* Logo + collapse */}
         <Box sx={{
           display: 'flex', alignItems: 'center', gap: 1,
           mb: 2, px: sidebarCollapsed ? 0 : 0.5,
@@ -247,7 +307,6 @@ function AppMain() {
           </Tooltip>
         </Box>
 
-        {/* Nav sections */}
         {!sidebarCollapsed ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flexGrow: 1, overflow: 'auto' }}>
             {navSections.map((section) => (
@@ -255,48 +314,29 @@ function AppMain() {
             ))}
           </Box>
         ) : (
-          /* Collapsed: show only icons */
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, flexGrow: 1, alignItems: 'center', pt: 1 }}>
-            {navSections.flatMap(s => s.items).map((item) => (
+            {navSections.flatMap((s) => s.items).map((item) => (
               <CollapsedNavIcon key={item.to} {...item} />
             ))}
           </Box>
         )}
 
-        {/* Footer */}
-        {!sidebarCollapsed && (
-          <Box sx={{ mt: 'auto', pt: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Divider />
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, alignItems: 'center', pt: 0.5 }}>
-              <Chip
-                size="small"
-                label={isAdmin ? 'Admin' : 'Usuario'}
-                variant="outlined"
-                color={isAdmin ? 'primary' : 'default'}
-                sx={{ fontSize: '0.65rem', height: 22 }}
-              />
-              {isAdmin
-                ? <Button size="small" color="inherit" onClick={logoutAdmin}
-                    sx={{ fontSize: '0.7rem', minWidth: 0, px: 1 }}>
-                    Salir
-                  </Button>
-                : <Button size="small" variant="outlined" onClick={openAdminDialog}
-                    sx={{ fontSize: '0.7rem', minWidth: 0, px: 1.5 }}>
-                    Login
-                  </Button>
-              }
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+        {/* Footer: user menu */}
+        <Box sx={{ mt: 'auto', pt: 2 }}>
+          <Divider sx={{ mb: 1 }} />
+          <UserMenu collapsed={sidebarCollapsed} />
+          {!sidebarCollapsed && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 1, px: 1 }}>
               <Box sx={{ width: 6, height: 6, borderRadius: 999, backgroundColor: '#3ccf91' }} />
               <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.63rem' }}>
                 API activa
               </Typography>
             </Box>
-          </Box>
-        )}
+          )}
+        </Box>
       </Box>
 
-      {/* ---- CONTENT AREA ---- */}
+      {/* CONTENT */}
       <Box sx={{
         flexGrow: 1, minHeight: 0, height: '100%',
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
@@ -312,6 +352,8 @@ function AppMain() {
           <Route path="/precios" element={<Precios />} />
           <Route path="/admin-ia" element={<AdminComparaciones />} />
           <Route path="/crm" element={<CRM />} />
+          <Route path="/crm/inbox" element={<CRMInbox />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Box>
     </Box>
@@ -319,80 +361,68 @@ function AppMain() {
 }
 
 // ---------------------------------------------------------------------------
-// App — root with providers
+// AuthGate — bloquea contenido si no hay sesión
 // ---------------------------------------------------------------------------
+function AuthGate() {
+  const { status } = useAuth();
+  const location = useLocation();
 
+  if (status === 'loading') {
+    return (
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (status === 'anonymous') {
+    if (location.pathname === '/login' || location.pathname === '/auth/success') {
+      return (
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/auth/success" element={<AuthSuccess />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      );
+    }
+    return <Navigate to="/login" replace />;
+  }
+
+  // Authenticated: rutas privadas + redirect /login → /
+  if (location.pathname === '/login') {
+    return <Navigate to="/" replace />;
+  }
+  if (location.pathname === '/auth/success') {
+    return <AuthSuccess />;
+  }
+  return <AppMain />;
+}
+
+// ---------------------------------------------------------------------------
+// App — root
+// ---------------------------------------------------------------------------
 function App() {
-  const [adminSession, setAdminSession] = useState(() => ({
-    user: sessionStorage.getItem('cercha_admin_user') || '',
-    token: sessionStorage.getItem('cercha_admin_token') || '',
-  }));
-  const [openAdmin, setOpenAdmin] = useState(false);
-  const [adminUserInput, setAdminUserInput] = useState('');
-  const [adminTokenInput, setAdminTokenInput] = useState('');
-  const [loginError, setLoginError] = useState('');
-
-  const isAdmin = Boolean(adminSession.user && adminSession.token);
-
-  const openAdminDialog = () => {
-    setAdminUserInput('');
-    setAdminTokenInput('');
-    setLoginError('');
-    setOpenAdmin(true);
-  };
-
-  const loginAdmin = () => {
-    const user = adminUserInput.trim();
-    const token = adminTokenInput.trim();
-    if (!user || !token) { setLoginError('Completa ambos campos.'); return; }
-    const next = { user, token };
-    setAdminSession(next);
-    sessionStorage.setItem('cercha_admin_user', next.user);
-    sessionStorage.setItem('cercha_admin_token', next.token);
-    setOpenAdmin(false);
-    setLoginError('');
-  };
-
-  const logoutAdmin = () => {
-    setAdminSession({ user: '', token: '' });
-    sessionStorage.removeItem('cercha_admin_user');
-    sessionStorage.removeItem('cercha_admin_token');
+  // El AdminContext viejo se mantiene en stub para compatibilidad con páginas
+  // que lo importan (Inventario, etc). No hace nada útil — la auth real ahora
+  // viene de AuthContext (OAuth2). Se eliminará tras migrar las páginas.
+  const adminStub = {
+    adminSession: { user: '', token: '' },
+    isAdmin: false,
+    openAdminDialog: () => {},
+    closeAdminDialog: () => {},
+    loginAdmin: () => {},
+    logoutAdmin: () => {},
   };
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AdminContext.Provider value={{
-        adminSession, isAdmin, openAdminDialog,
-        closeAdminDialog: () => setOpenAdmin(false),
-        loginAdmin, logoutAdmin,
-      }}>
+      <AdminContext.Provider value={adminStub}>
         <Router>
-          <AppMain />
+          <AuthProvider>
+            <AuthGate />
+          </AuthProvider>
         </Router>
-
-        <Dialog open={openAdmin} onClose={() => setOpenAdmin(false)} maxWidth="xs" fullWidth
-          PaperProps={{ sx: { borderRadius: 4, border: '1px solid rgba(28, 35, 43, 0.12)' } }}>
-          <DialogTitle sx={{ fontWeight: 700 }}>Iniciar sesion admin</DialogTitle>
-          <Divider />
-          <DialogContent sx={{ pt: 3 }}>
-            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
-              Las credenciales se borran al cerrar la pestana.
-            </Typography>
-            {loginError && <Alert severity="error" sx={{ mb: 2 }}>{loginError}</Alert>}
-            <TextField label="Usuario admin" fullWidth value={adminUserInput}
-              onChange={(e) => setAdminUserInput(e.target.value)} sx={{ mb: 2 }} autoComplete="off" />
-            <TextField label="Token admin" type="password" fullWidth value={adminTokenInput}
-              onChange={(e) => setAdminTokenInput(e.target.value)} autoComplete="new-password"
-              onKeyDown={(e) => e.key === 'Enter' && loginAdmin()} />
-          </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 3 }}>
-            <Button onClick={() => setOpenAdmin(false)} color="inherit">Cancelar</Button>
-            <Button onClick={loginAdmin} variant="contained" disabled={!adminUserInput || !adminTokenInput}>
-              Iniciar sesion
-            </Button>
-          </DialogActions>
-        </Dialog>
       </AdminContext.Provider>
     </ThemeProvider>
   );
