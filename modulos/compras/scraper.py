@@ -19,7 +19,17 @@ from datetime import datetime
 from typing import Any, List, Optional
 from urllib.parse import quote_plus
 
-from playwright.async_api import Page, Response, async_playwright
+from playwright.async_api import BrowserContext, Page, Response, async_playwright
+
+# playwright-stealth: soft import. Si no está instalado el scraper sigue
+# funcionando, sólo pierde la capa anti-bot. Instalar con:
+#   pip install playwright-stealth
+try:
+    from playwright_stealth import stealth_async  # type: ignore
+    _STEALTH_AVAILABLE = True
+except Exception:  # pragma: no cover
+    stealth_async = None  # type: ignore
+    _STEALTH_AVAILABLE = False
 
 from .models import EstadoScraping, NombreProveedor
 from .schemas import ProductoProveedorCreate
@@ -33,6 +43,92 @@ logger = logging.getLogger(__name__)
 
 TIMEOUT_BROWSER_MS = 35_000
 _EASY_BASE = "https://www.easy.cl"
+
+# Pool de User-Agents reales y recientes (Chrome stable Win/Mac, Edge,
+# Firefox). Se rota uno aleatorio por cada nueva sesión de scraping.
+# Mantener actualizado: WAFs detectan UAs viejos como bots.
+_USER_AGENTS_POOL: tuple[str, ...] = (
+    # Chrome 130/131 Win
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+    # Chrome 131 Mac
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+    # Edge 131 Win
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0",
+    # Firefox 132 Win
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:132.0) "
+    "Gecko/20100101 Firefox/132.0",
+)
+
+
+def _pick_user_agent() -> str:
+    """Devuelve un UA aleatorio del pool. Llamar una vez por contexto."""
+    return random.choice(_USER_AGENTS_POOL)
+
+
+async def _aplicar_stealth(page: Page) -> None:
+    """
+    Aplica playwright-stealth si está disponible. Es no-op silencioso si
+    la dependencia no está instalada — el scraper sigue funcionando con
+    los workarounds manuales (init_script con webdriver=undefined, etc.).
+    """
+    if _STEALTH_AVAILABLE and stealth_async is not None:
+        try:
+            await stealth_async(page)
+        except Exception as exc:
+            logger.debug("stealth_async falló (no fatal): %s", exc)
+
+
+async def _crear_contexto_evasivo(
+    browser, *, viewport: Optional[dict] = None, locale: str = "es-CL"
+) -> "BrowserContext":
+    """
+    Crea un BrowserContext endurecido contra detección de bots:
+      - User-Agent aleatorio del pool
+      - Headers Accept-Language y sec-ch-ua coherentes
+      - init_script que neutraliza señales clásicas de webdriver
+      - Viewport por defecto Full HD
+    """
+    ua = _pick_user_agent()
+    context = await browser.new_context(
+        viewport=viewport or {"width": 1366, "height": 768},
+        user_agent=ua,
+        locale=locale,
+        extra_http_headers={
+            "Accept-Language": "es-CL,es;q=0.9,en;q=0.8",
+            "Accept": (
+                "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                "image/avif,image/webp,*/*;q=0.8"
+            ),
+            "sec-ch-ua": '"Chromium";v="131", "Not_A Brand";v="24"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "Upgrade-Insecure-Requests": "1",
+        },
+    )
+    await context.add_init_script(
+        """
+        Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+        Object.defineProperty(navigator, 'plugins',  { get: () => [1,2,3,4,5] });
+        Object.defineProperty(navigator, 'languages',{ get: () => ['es-CL','es','en-US'] });
+        Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
+        window.chrome = { runtime: {} };
+        const oq = window.navigator.permissions && window.navigator.permissions.query;
+        if (oq) {
+            window.navigator.permissions.query = (p) => (
+                p && p.name === 'notifications'
+                    ? Promise.resolve({ state: Notification.permission })
+                    : oq(p)
+            );
+        }
+        """
+    )
+    logger.debug("Contexto evasivo creado UA=%s", ua[:60])
+    return context
 
 
 # ---------------------------------------------------------------------------
@@ -268,8 +364,11 @@ class SodimacScraper:
 
         context = None
         try:
-            context = await browser.new_context(viewport={"width": 1280, "height": 800})
+            context = await _crear_contexto_evasivo(
+                browser, viewport={"width": 1280, "height": 800}
+            )
             page = await context.new_page()
+            await _aplicar_stealth(page)
             url = f"https://www.sodimac.cl/sodimac-cl/search?Ntt={quote_plus(query)}"
 
             print(f"🟢 [Sodimac] Navegando a {url}")
@@ -292,18 +391,29 @@ class SodimacScraper:
                 re.DOTALL,
             )
 
-            if not match:
+            json_data: Any = None
+            productos_crudos: list = []
+
+            if match:
+                try:
+                    json_data = json.loads(match.group(1))
+                except json.JSONDecodeError as exc:
+                    logger.warning("[Sodimac] __NEXT_DATA__ JSON inválido: %s", exc)
+                    json_data = None
+
+            if json_data is None:
                 # Fallback: buscar self.__next_f.push hydration chunks (App Router)
                 print(f"[Sodimac] __NEXT_DATA__ no encontrado, intentando self.__next_f.push...")
                 next_f_data = _extraer_next_f_push(html)
                 if next_f_data:
-                    _aspirar_productos(next_f_data, productos_crudos := [])
-                    if productos_crudos:
-                        print(f"[Sodimac] self.__next_f.push: {len(productos_crudos)} productos encontrados")
-                        match = True  # Flag para continuar con el flujo normal
-                        json_data = next_f_data
+                    json_data = next_f_data
+                    # Para hydration chunks dispersos, usamos extracción recursiva
+                    _aspirar_productos(next_f_data, productos_crudos)
+                    print(
+                        f"[Sodimac] self.__next_f.push: {len(productos_crudos)} productos encontrados"
+                    )
 
-                if not match:
+                if json_data is None:
                     dump_scraper_data(
                         query=query, proveedor="Sodimac", metodo="next_data",
                         items_crudos=[], productos_finales=[],
@@ -316,9 +426,27 @@ class SodimacScraper:
                         error_msg="__NEXT_DATA__ no encontrado",
                     )
 
-            json_data = json.loads(match.group(1))
-            productos_crudos: list = []
-            _aspirar_productos(json_data, productos_crudos)
+            # ── Parseo DIRECTO (AAWR/anti-basura): props.pageProps.initialState.products ──
+            if not productos_crudos and isinstance(json_data, dict):
+                page_props = (
+                    json_data.get("props", {}).get("pageProps", {})
+                    if isinstance(json_data.get("props"), dict)
+                    else {}
+                )
+                initial_state = page_props.get("initialState") or {}
+                direct_products = initial_state.get("products")
+                if isinstance(direct_products, list) and direct_products:
+                    productos_crudos = direct_products
+                    print(
+                        f"[Sodimac] Parseo directo initialState.products: "
+                        f"{len(productos_crudos)} items"
+                    )
+                else:
+                    # Fallback recursivo si la estructura cambió
+                    logger.info(
+                        "[Sodimac] initialState.products vacío; fallback recursivo"
+                    )
+                    _aspirar_productos(json_data, productos_crudos)
 
             productos: List[ProductoProveedorCreate] = []
             vistos: set = set()
@@ -433,32 +561,12 @@ class EasyScraper:
         context = None
 
         try:
-            context = await browser.new_context(
-                viewport={"width": 1366, "height": 768},
-                user_agent=(
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/124.0.0.0 Safari/537.36"
-                ),
-                locale="es-CL",
-                extra_http_headers={
-                    "Accept-Language": "es-CL,es;q=0.9,en;q=0.8",
-                    "sec-ch-ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-                    "sec-ch-ua-platform": '"Windows"',
-                    "sec-ch-ua-mobile": "?0",
-                },
-            )
-
-            await context.add_init_script(
-                """
-                Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-                Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
-                Object.defineProperty(navigator, 'languages', { get: () => ['es-CL', 'es', 'en-US'] });
-                window.chrome = { runtime: {} };
-                """
+            context = await _crear_contexto_evasivo(
+                browser, viewport={"width": 1366, "height": 768}
             )
 
             page: Page = await context.new_page()
+            await _aplicar_stealth(page)
 
             # Bloquear assets pesados
             await page.route(

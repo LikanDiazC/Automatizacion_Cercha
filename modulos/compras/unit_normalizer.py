@@ -48,6 +48,12 @@ _CUSTOM_DEFS = [
     "docena = 12 * unidad",
     "ciento = 100 * unidad",
     "millar = 1000 * unidad",
+    # Unidades de venta típicas en ferretería chilena
+    "tira = unidad = tiras",            # perfiles, varillas, listones
+    "plancha = unidad = planchas = pln",  # OSB, terciado, melamina, fierro
+    "saco = unidad = sacos = sk",         # cemento, áridos, mortero
+    "rollo_v = unidad = rollos",          # cables, mallas, mangueras
+    "bolsa_v = unidad = bolsas",          # tornillos, pernos a granel
 ]
 
 for _def in _CUSTOM_DEFS:
@@ -102,10 +108,10 @@ def _safe_quantulum_parse(text: str) -> list:
 # ---------------------------------------------------------------------------
 
 _PACK_PATTERNS = re.compile(
-    r'(?:pack|caja|bolsa|rollo|paquete|saco|estuche|set|kit|display)\s*'
+    r'(?:pack|caja|bolsa|rollo|paquete|saco|estuche|set|kit|display|tira|plancha)\s*'
     r'(?:de\s*)?(?:x\s*)?(\d+)\s*(?:un(?:idades?)?|pzas?|piezas?|u\.?)?|'
     r'x\s*(\d+)\s*(?:un(?:idades?)?|pzas?)?|'
-    r'(\d+)\s*(?:un(?:idades?)?|pzas?|piezas?)\b',
+    r'(\d+)\s*(?:un(?:idades?)?|pzas?|piezas?|tiras?|planchas?|sacos?|cientos?|millares?)\b',
     re.IGNORECASE,
 )
 
@@ -143,6 +149,12 @@ _UNIT_MAP = {
     "un": "unidad", "und": "unidad", "uni": "unidad", "unidad": "unidad",
     "unidades": "unidad", "pza": "unidad", "pz": "unidad", "pieza": "unidad",
     "piezas": "unidad",
+    # Conteo / venta chileno
+    "tira": "tira", "tiras": "tira",
+    "plancha": "plancha", "planchas": "plancha", "pln": "plancha",
+    "saco": "saco", "sacos": "saco", "sk": "saco",
+    "ciento": "ciento", "cientos": "ciento",
+    "millar": "millar", "millares": "millar",
 }
 
 

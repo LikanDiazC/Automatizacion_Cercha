@@ -67,7 +67,12 @@ EMBEDDING_MODEL = "gemini-embedding-001"
 LLM_MODEL = "gemini-2.5-flash"
 LLM_MAX_TOKENS_RESPUESTA = 2048
 EMBEDDING_DIM = 3072
-PROMPT_VERSION_TAG = "coem_v2"
+PROMPT_VERSION_TAG = "aawr_v1"
+
+# Penalización post-LLM por divergencia de precios.
+# Si el ratio entre precios es > este umbral, se asume diferencia de
+# formato/empaque y el confidence_score se reduce a la mitad.
+PRICE_RATIO_PENALTY_THRESHOLD: float = 3.5
 
 # Costos estimados por token (Gemini pricing — ajustar según plan)
 _COST_PER_INPUT_TOKEN = 0.0000001    # $0.10 / 1M tokens
@@ -343,41 +348,107 @@ def buscar_por_similitud(
 # ---------------------------------------------------------------------------
 
 PROMPT_SISTEMA_COEM = """
-Eres un experto en Entity Resolution para materiales de construcción y ferretería chilena.
-Sigues el framework ComEM (Compound Entity Matching) con razonamiento Chain-of-Thought de 3 pasos.
+Eres un Principal Entity Resolution Engineer especializado en ferretería y
+materiales de construcción chilenos. Aplicas la metodología AAWR
+(Attribute-Aware Weighted Reasoning) sobre razonamiento Chain-of-Thought
+de 3 pasos.
 
-Para cada par de productos, ejecuta estos pasos EN ORDEN:
+═══════════════════════════════════════════════════════════════
+  METODOLOGÍA AAWR — PESOS DE ATRIBUTOS
+═══════════════════════════════════════════════════════════════
+Cada atributo del producto tiene un PESO de impacto en la decisión final:
 
-═══ PASO 1: IDENTIFICACIÓN DE TOKENS ═══
-Lista TODOS los tokens significativos de cada producto:
-- Tipo de producto base (tornillo, clavo, perno, etc.)
-- Dimensiones (diámetro, largo, espesor)
-- Material y acabado (acero, zincado, inox, etc.)
-- Marca y modelo
-- Unidad de venta (pack, unidad, kg, metro, rollo)
-- Cantidad en el envase
+  • Dimensiones numéricas (diámetro, largo, espesor) ............ peso 1.0
+  • Unidad de venta (pack, kg, unidad, ciento, saco) ............ peso 1.0
+  • Material / acabado (zincado, inox, pavonado, acero) ......... peso 0.8
+  • Marca .......................................................... peso 0.7
+  • Color, código interno, formato de nombre .................... peso 0.0 (informativo)
 
-Marca cada token como COINCIDENTE (✓) o DISCREPANTE (✗) entre ambos productos.
+El confidence_score se calcula como suma ponderada de coincidencias /
+suma de pesos de atributos verificados, normalizado a [0.0, 1.0].
 
-═══ PASO 2: INFLUENCIA DE ATRIBUTOS ═══
-Para cada token identificado, clasifícalo:
-- CRÍTICO: Si difiere, los productos NO son el mismo (dimensiones, material, tipo, unidad de venta)
-- INFORMATIVO: Puede diferir sin cambiar la identidad del producto (formato de nombre, proveedor)
+═══════════════════════════════════════════════════════════════
+  REGLA DE ORO — DIMENSIONES (INFRANQUEABLE)
+═══════════════════════════════════════════════════════════════
+Si los VALORES NUMÉRICOS de las medidas difieren entre A y B
+(ejemplos: 1/4" vs 3/8", 50mm vs 60mm, 8x1 vs 8x2, M6 vs M8,
+3 metros vs 5 metros), el veredicto es **OBLIGATORIAMENTE**:
 
-REGLAS DURAS (nunca ignorar):
-- Pack/Caja de N unidades ≠ Unidad individual → SIEMPRE productos diferentes
-- 1 kg ≠ 1 unidad → SIEMPRE productos diferentes
-- Diámetro 1/4" ≠ 3/8" → SIEMPRE productos diferentes
-- Zincado ≠ Pavonado ≠ Inoxidable → SIEMPRE productos diferentes
-- Si el ratio de precios es >5x para productos aparentemente iguales → VERIFICAR unidades
+      es_mismo_producto = false
+      confidence_score   = 0.0
 
-═══ PASO 3: VEREDICTO FINAL ═══
-Basándote en los pasos 1 y 2:
-- Si ALGÚN token CRÍTICO es DISCREPANTE → es_mismo_producto = false
-- Si TODOS los tokens CRÍTICOS COINCIDEN → es_mismo_producto = true
-- confidence_score refleja cuántos tokens pudiste verificar (más tokens verificados = más confianza)
+…IGNORANDO cualquier otra coincidencia textual, de marca, material o
+similitud vectorial. Esta regla no admite excepciones. Una diferencia
+de dimensión convierte al producto en una SKU diferente, sin importar
+qué tan parecidos sean en el resto.
 
-Responde ÚNICAMENTE con un JSON válido:
+REGLAS DURAS ADICIONALES (también infranqueables):
+  • Pack/Caja/Tira/Plancha/Saco de N unidades ≠ Unidad individual
+  • Ciento (100 u) ≠ Millar (1000 u) ≠ Unidad
+  • 1 kg ≠ 1 unidad ≠ 1 metro (dimensiones físicas distintas)
+  • Zincado ≠ Pavonado ≠ Inoxidable ≠ Galvanizado en caliente
+  • Si el ratio de precios es >5x con dimensiones iguales → revisar
+    unidad de venta antes de declarar match.
+
+═══════════════════════════════════════════════════════════════
+  EJEMPLOS FEW-SHOT
+═══════════════════════════════════════════════════════════════
+
+Ejemplo 1 — FALSO POSITIVO POR DIMENSIÓN (regla de oro)
+  A: "Tornillo autoperforante cabeza plana 8x1 zincado"
+  B: "Tornillo autoperforante cabeza plana 8x2 zincado"
+  Análisis: mismo tipo, mismo material (zincado +0.8), misma marca,
+            pero las dimensiones difieren (8x1 vs 8x2, peso 1.0).
+  Veredicto: { "es_mismo_producto": false, "confidence_score": 0.0,
+               "razon": "Regla de oro: dimensión 8x1 ≠ 8x2" }
+
+Ejemplo 2 — MATCH POR SINÓNIMOS
+  A: "Perno hexagonal 1/2 x 3 zincado Stanley"
+  B: "Perno Hex 1/2x3 Zn Stanley"
+  Análisis: mismas dimensiones (1.0 ✓), mismo material zincado/Zn (0.8 ✓),
+            misma marca Stanley (0.7 ✓). El "Hex" y "hexagonal" son
+            sinónimos del mismo tipo.
+  Veredicto: { "es_mismo_producto": true, "confidence_score": 0.96,
+               "razon": "Coincidencia total: dim+material+marca; Zn = Zincado" }
+
+Ejemplo 3 — FALSO POSITIVO POR CANTIDAD/EMPAQUE
+  A: "Clavo galvanizado 2 pulgadas Pack x100"
+  B: "Clavo galvanizado 2 pulgadas (1 unidad)"
+  Análisis: mismo tipo, mismas dimensiones, mismo material —
+            PERO la unidad de venta difiere (100 u vs 1 u, peso 1.0).
+            La diferencia de empaque convierte el SKU en diferente.
+  Veredicto: { "es_mismo_producto": false, "confidence_score": 0.0,
+               "razon": "Unidad de venta incompatible: pack 100 u vs unidad" }
+
+═══════════════════════════════════════════════════════════════
+  PIPELINE DE RAZONAMIENTO (3 PASOS)
+═══════════════════════════════════════════════════════════════
+
+PASO 1 — IDENTIFICACIÓN DE TOKENS
+  Lista TODOS los tokens significativos de cada producto y márcalos
+  como COINCIDENTE (✓) o DISCREPANTE (✗) entre A y B:
+    - Tipo de producto base (tornillo, clavo, perno, plancha…)
+    - Dimensiones numéricas (diámetro, largo, espesor, calibre)
+    - Material / acabado
+    - Marca
+    - Unidad de venta + cantidad en el envase
+
+PASO 2 — APLICACIÓN AAWR + REGLA DE ORO
+  a) Aplica la REGLA DE ORO de dimensiones PRIMERO. Si dispara → corta
+     aquí: false / 0.0.
+  b) Aplica las reglas duras de unidad de venta. Si disparan → false / 0.0.
+  c) Si pasaste (a) y (b), calcula el score AAWR:
+     score = Σ (peso_atributo × coincide) / Σ (peso_atributo evaluado)
+
+PASO 3 — VEREDICTO FINAL
+  - es_mismo_producto = true SI score >= 0.75 y ningún corte duro disparó.
+  - es_mismo_producto = false en cualquier otro caso.
+  - confidence_score = score AAWR (después de aplicar la regla de oro).
+
+═══════════════════════════════════════════════════════════════
+  FORMATO DE SALIDA — JSON ESTRICTO
+═══════════════════════════════════════════════════════════════
+Responde ÚNICAMENTE con este JSON, sin texto adicional ni markdown:
 {
   "paso_1_tokens": {
     "producto_a": ["token1", "token2", ...],
@@ -385,15 +456,21 @@ Responde ÚNICAMENTE con un JSON válido:
     "coincidentes": ["token1", ...],
     "discrepantes": ["token1: A=valor vs B=valor", ...]
   },
-  "paso_2_influencia": {
-    "criticos_coincidentes": ["token1", ...],
-    "criticos_discrepantes": ["token1: razón", ...],
-    "informativos": ["token1", ...]
+  "paso_2_aawr": {
+    "regla_oro_disparo": true | false,
+    "regla_oro_razon": "valor_a vs valor_b si disparó, sino vacío",
+    "pesos_evaluados": {
+      "dimensiones":   {"peso": 1.0, "coincide": true|false, "valor_a": "...", "valor_b": "..."},
+      "unidad_venta":  {"peso": 1.0, "coincide": true|false, "valor_a": "...", "valor_b": "..."},
+      "material":      {"peso": 0.8, "coincide": true|false, "valor_a": "...", "valor_b": "..."},
+      "marca":         {"peso": 0.7, "coincide": true|false, "valor_a": "...", "valor_b": "..."}
+    },
+    "score_aawr": 0.0
   },
   "paso_3_veredicto": {
     "es_mismo_producto": true | false,
-    "confidence_score": 0.0 a 1.0,
-    "razon": "Explicación breve basada en los pasos anteriores",
+    "confidence_score": 0.0,
+    "razon": "Explicación breve basada en AAWR + regla de oro",
     "unidad_a": "unidad de venta detectada",
     "unidad_b": "unidad de venta detectada",
     "unidades_compatibles": true | false
@@ -543,9 +620,23 @@ def _parsear_respuesta_coem(contenido: str) -> dict:
                 "unidad_b": veredicto.get("unidad_b", ""),
                 "unidades_compatibles": veredicto.get("unidades_compatibles", True),
             }
-            # Extraer diferencias críticas del paso 2
-            paso2 = full.get("paso_2_influencia", {})
-            result["diferencias_criticas"] = paso2.get("criticos_discrepantes", [])
+            # Extraer info del paso 2 — soportar tanto el esquema legacy
+            # (paso_2_influencia) como el nuevo AAWR (paso_2_aawr).
+            paso2 = full.get("paso_2_aawr") or full.get("paso_2_influencia") or {}
+            result["diferencias_criticas"] = (
+                paso2.get("criticos_discrepantes")
+                or ([paso2.get("regla_oro_razon")] if paso2.get("regla_oro_disparo") else [])
+                or []
+            )
+            result["regla_oro_disparo"] = bool(paso2.get("regla_oro_disparo", False))
+            result["score_aawr"] = float(paso2.get("score_aawr", result["confidence_score"]) or 0.0)
+
+            # Si la regla de oro disparó pero el LLM no normalizó el veredicto,
+            # forzamos el corte aquí: la regla de oro es infranqueable.
+            if result["regla_oro_disparo"]:
+                result["es_mismo_producto"] = False
+                result["confidence_score"] = 0.0
+
             # Guardar pasos completos para lineage
             result["coem_steps"] = {
                 "paso_1": full.get("paso_1_tokens", {}),
@@ -652,16 +743,24 @@ async def comparar_productos(
         logger.debug("Cache lookup falló (no bloqueante): %s", _cache_exc)
 
     # ══════════════════════════════════════════════════════════════════
-    # PRE-CAPA: Rechazo por ratio de precios extremo (> 3x)
-    # Indica productos de distinta cantidad de venta (ej: 1 unidad vs 100)
+    # PRE-CAPA: Rechazo DURO por ratio de precios extremo (> 6x)
+    # Indica casi con certeza unidades de venta incompatibles
+    # (ej: 1 unidad vs ciento, kg vs unidad). El umbral suave de 3.5x
+    # se aplica como PENALIZACIÓN post-LLM más abajo.
     # ══════════════════════════════════════════════════════════════════
     _precio_a = producto_a.precio_oferta or producto_a.precio_clp or 0
     _precio_b = producto_b.precio_oferta or producto_b.precio_clp or 0
+    _ratio_precios: Optional[float] = None
     if _precio_a > 0 and _precio_b > 0:
-        _ratio = max(_precio_a, _precio_b) / min(_precio_a, _precio_b)
-        if _ratio > 3:
-            _razon_ratio = f"Ratio de precios {_ratio:.1f}x sugiere unidades de venta incompatibles"
-            logger.info("Ratio rechazo (%s vs %s): %s", producto_a.sku_proveedor, producto_b.sku_proveedor, _razon_ratio)
+        _ratio_precios = max(_precio_a, _precio_b) / min(_precio_a, _precio_b)
+        lineage["price_ratio"] = round(_ratio_precios, 2)
+        if _ratio_precios > 6.0:
+            _razon_ratio = (
+                f"Ratio de precios {_ratio_precios:.1f}x (>6x) — "
+                f"unidades de venta incompatibles, rechazo duro"
+            )
+            logger.info("Ratio rechazo duro (%s vs %s): %s",
+                        producto_a.sku_proveedor, producto_b.sku_proveedor, _razon_ratio)
             resultado = MatchResult(
                 es_mismo_producto=False, confidence_score=0.0, similitud_coseno=0.0,
                 razon=_razon_ratio, metodo="ratio_precio_rechazo",
@@ -830,6 +929,38 @@ async def comparar_productos(
         resultado.similitud_coseno = round(sim, 4)
         resultado.metodo = "vectorial_fallback_textual"
         resultado.lineage = lineage
+
+    # ══════════════════════════════════════════════════════════════════
+    # POST-PIPELINE: penalización suave AAWR por ratio de precios alto
+    # Si el ratio de precios > PRICE_RATIO_PENALTY_THRESHOLD (3.5x) y
+    # el LLM aún declaró match, reducimos confidence_score a la mitad y
+    # añadimos una nota. Por encima del umbral de match (0.75) seguimos
+    # devolviendo es_mismo_producto=true, pero la confianza queda
+    # marcada como dudosa por probable diferencia de formato/empaque.
+    # ══════════════════════════════════════════════════════════════════
+    if _ratio_precios is not None and _ratio_precios > PRICE_RATIO_PENALTY_THRESHOLD:
+        original_score = resultado.confidence_score
+        penalizado = round(original_score * 0.5, 4)
+        nota = (
+            f" | ⚠ Penalización AAWR price_ratio={_ratio_precios:.1f}x>"
+            f"{PRICE_RATIO_PENALTY_THRESHOLD}x: probable diferencia de "
+            f"formato/empaque (confidence {original_score:.2f}→{penalizado:.2f})"
+        )
+        resultado.confidence_score = penalizado
+        resultado.razon = (resultado.razon or "") + nota
+        resultado.es_mismo_producto = penalizado >= UMBRAL_LLM_MATCH
+        lineage["aawr_price_penalty"] = {
+            "ratio": round(_ratio_precios, 2),
+            "threshold": PRICE_RATIO_PENALTY_THRESHOLD,
+            "score_original": original_score,
+            "score_penalizado": penalizado,
+        }
+        resultado.lineage = lineage
+        logger.info(
+            "AAWR price penalty (%s vs %s): ratio=%.1fx score %.2f→%.2f",
+            producto_a.sku_proveedor, producto_b.sku_proveedor,
+            _ratio_precios, original_score, penalizado,
+        )
 
     _guardar_comparacion(producto_a, producto_b, resultado, db)
     return resultado
