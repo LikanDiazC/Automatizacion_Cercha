@@ -2,6 +2,7 @@
 Router FastAPI — Módulo de Compras Inteligentes.
 """
 
+import contextlib
 import json as _json
 import logging
 import secrets
@@ -9,7 +10,16 @@ import asyncio
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status, BackgroundTasks
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Request,
+    status,
+    BackgroundTasks,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from sqlalchemy.orm import Session
 from core.rate_limit import limiter
 
@@ -44,6 +54,16 @@ from .ai_matcher import (
     generar_y_guardar_embedding,
     similitud_textual,
     MatchResult,
+)
+from .event_bus import (
+    subscribe,
+    subscriber_count,
+    MatchEvent,
+    publish_event,
+    ProductoRef,
+    get_history,
+    history_size,
+    clear_history,
 )
 
 logger = logging.getLogger(__name__)
@@ -1225,3 +1245,290 @@ def _carrito_a_response(carrito: CarritoCompras) -> CarritoResponse:
         ahorro_potencial=carrito.ahorro_potencial, proveedor_optimo=carrito.proveedor_optimo,
         created_at=carrito.created_at, procesado_at=carrito.procesado_at,
     )
+
+# ═══════════════════════════════════════════════════════════════════════════
+# WebSocket — Centro de Comando de IA (tiempo real)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.websocket("/ws/ia-monitor")
+async def ws_ia_monitor(ws: WebSocket):
+    """
+    Stream en tiempo real de eventos del pipeline de matching.
+
+    Protocolo:
+      1. Cliente se conecta → el servidor envía un hello con subscriber_count.
+      2. Servidor envía eventos JSON conforme el pipeline los publica.
+      3. Cliente puede enviar "ping" en cualquier momento → servidor responde "pong".
+      4. Si el cliente se desconecta, la suscripción se libera automáticamente.
+
+    Formato de evento (MatchEvent.to_dict):
+      {
+        "event_type": "layer_decision" | "pipeline_end" | "heartbeat",
+        "layer": "capa_1_5_graph",
+        "decision": "match" | "reject" | "pass_through" | "cache_hit",
+        "producto_a": {"id", "sku", "nombre", "marca", "proveedor"},
+        "producto_b": {...},
+        "confidence": 0.0-1.0,
+        "similitud_coseno": 0.0-1.0,
+        "razon": "Capa 1.5: 8x1 ≠ 8x2",
+        "latencia_ms": 12.4,
+        "tokens": 0,
+        "costo_usd": 0.0,
+        "metodo": "graph_cross_rechazo",
+        "event_id": "abc123...",
+        "timestamp": 1712524800.123
+      }
+
+    Diseño:
+      - El productor (pipeline) NUNCA bloquea: publish_event usa put_nowait.
+      - Cada conexión WS tiene su propia asyncio.Queue bounded.
+      - Si un cliente WS es lento, pierde eventos (nunca el pipeline).
+      - Heartbeat cada 25s para mantener vivos proxies/load balancers.
+    """
+    await ws.accept()
+    logger.info("WS /ws/ia-monitor cliente conectado (total=%d)", subscriber_count() + 1)
+
+    # Hello inicial
+    try:
+        await ws.send_json({
+            "event_type": "hello",
+            "subscriber_count": subscriber_count() + 1,
+            "server_time": datetime.utcnow().isoformat() + "Z",
+            "protocol_version": "1.0",
+        })
+    except Exception:
+        return
+
+    heartbeat_task: Optional[asyncio.Task] = None
+    reader_task: Optional[asyncio.Task] = None
+
+    async def _heartbeat_loop():
+        """Envía un heartbeat cada 25s para mantener la conexión viva."""
+        while True:
+            try:
+                await asyncio.sleep(25.0)
+                await ws.send_json({
+                    "event_type": "heartbeat",
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                })
+            except Exception:
+                break
+
+    async def _reader_loop():
+        """Lee mensajes del cliente (ping/pong + cierre limpio)."""
+        while True:
+            try:
+                msg = await ws.receive_text()
+            except WebSocketDisconnect:
+                break
+            except Exception:
+                break
+            if msg == "ping":
+                try:
+                    await ws.send_json({"event_type": "pong"})
+                except Exception:
+                    break
+
+    try:
+        async with subscribe() as queue:
+            heartbeat_task = asyncio.create_task(_heartbeat_loop())
+            reader_task = asyncio.create_task(_reader_loop())
+
+            while True:
+                # get() es el mecanismo principal — despierta con cada evento publicado
+                try:
+                    event = await asyncio.wait_for(queue.get(), timeout=30.0)
+                except asyncio.TimeoutError:
+                    # Ninguna actividad en 30s → verifica conexión mandando heartbeat manual
+                    continue
+
+                try:
+                    await ws.send_json(event)
+                except (WebSocketDisconnect, RuntimeError):
+                    break
+                except Exception as exc:
+                    logger.debug("WS send falló: %s", exc)
+                    break
+
+                if reader_task.done():
+                    break
+
+    except WebSocketDisconnect:
+        logger.info("WS /ws/ia-monitor cliente desconectado limpiamente")
+    except Exception as exc:
+        logger.warning("WS /ws/ia-monitor error: %s", exc)
+    finally:
+        for t in (heartbeat_task, reader_task):
+            if t and not t.done():
+                t.cancel()
+                with contextlib.suppress(Exception):
+                    await t
+        logger.info("WS /ws/ia-monitor conexión cerrada (total=%d)", subscriber_count())
+
+
+@router.get("/ia-monitor/status")
+async def ia_monitor_status():
+    """Métricas rápidas del monitor: suscriptores activos y tamaño del histórico."""
+    return {
+        "subscribers": subscriber_count(),
+        "history_size": history_size(),
+    }
+
+
+@router.get("/ia-monitor/history")
+async def ia_monitor_history(limit: int = 500):
+    """
+    Devuelve los últimos eventos publicados por el pipeline, ordenados
+    cronológicamente (el más antiguo primero, el más reciente al final).
+
+    Permite que un cliente que se conecte al Centro IA *después* de que haya
+    corrido un sync/búsqueda pueda ver las decisiones recientes sin perder
+    información. El histórico vive en memoria (ring buffer acotado) y se
+    reinicia al reiniciar el proceso.
+    """
+    limit = max(1, min(int(limit or 500), 2000))
+    events = get_history(limit)
+    return {
+        "count": len(events),
+        "history_size": history_size(),
+        "events": events,
+    }
+
+
+@router.post("/ia-monitor/history/clear")
+async def ia_monitor_history_clear():
+    """Vacía el histórico in-memory del Centro IA."""
+    removed = clear_history()
+    return {"removed": removed}
+
+
+@router.post("/ia-monitor/run-pipeline")
+async def ia_monitor_run_pipeline(max_pares: int = 60):
+    """
+    Ejecuta el pipeline de matching (`comparar_productos`) sobre pares
+    cross-proveedor de los productos YA scrapeados en la BD.
+
+    No re-scrapea — solo ejercita el pipeline neuro-simbólico para
+    diagnóstico visual desde el Centro IA. Corre en background; la
+    llamada retorna inmediatamente con el número de pares encolados.
+
+    `max_pares` acota el tope total para no colgar el backend con
+    cientos de llamadas al LLM en una sola invocación.
+    """
+    from .models import ProductoCanonical, ProductoProveedor, NombreProveedor
+    from .ai_matcher import comparar_productos
+
+    max_pares = max(1, min(int(max_pares or 60), 500))
+
+    # Recolectar los pares (a, b) cross-proveedor bajo el MISMO canonical.
+    # Usamos una sesión sincrónica solo para el query inicial; las
+    # comparaciones del pipeline reciben su propia sesión en el task bg.
+    pares_ids: list[tuple[int, int, int, str]] = []  # (canonical_id, a_id, b_id, query)
+    with SessionLocal() as db_tmp:
+        canonicals = db_tmp.query(ProductoCanonical).all()
+        for c in canonicals:
+            productos = db_tmp.query(ProductoProveedor).filter(
+                ProductoProveedor.canonical_id == c.id
+            ).all()
+            sodimac = [p for p in productos if p.proveedor == NombreProveedor.SODIMAC]
+            easy    = [p for p in productos if p.proveedor == NombreProveedor.EASY]
+            if not sodimac or not easy:
+                continue
+            for a in sodimac:
+                for b in easy:
+                    pares_ids.append((c.id, a.id, b.id, c.nombre_normalizado or ""))
+                    if len(pares_ids) >= max_pares:
+                        break
+                if len(pares_ids) >= max_pares:
+                    break
+            if len(pares_ids) >= max_pares:
+                break
+
+    if not pares_ids:
+        return {
+            "status": "sin_pares",
+            "mensaje": "No hay canonicals con productos de AMBOS proveedores.",
+            "encolados": 0,
+        }
+
+    async def _run_pipeline_bg():
+        db_bg = SessionLocal()
+        ok = 0
+        fail = 0
+        try:
+            for canonical_id, a_id, b_id, query in pares_ids:
+                a = db_bg.query(ProductoProveedor).get(a_id)
+                b = db_bg.query(ProductoProveedor).get(b_id)
+                if not a or not b:
+                    continue
+                try:
+                    await comparar_productos(a, b, db_bg, query_original=query)
+                    ok += 1
+                except Exception as exc:
+                    fail += 1
+                    logger.warning(
+                        "run-pipeline: error en par (%s,%s): %s", a_id, b_id, exc
+                    )
+            logger.info("run-pipeline completado: ok=%d fail=%d", ok, fail)
+        finally:
+            db_bg.close()
+
+    asyncio.create_task(_run_pipeline_bg())
+    return {
+        "status": "iniciado",
+        "encolados": len(pares_ids),
+        "mensaje": f"Pipeline corriendo sobre {len(pares_ids)} pares cross-proveedor en background.",
+    }
+
+
+@router.post("/ia-monitor/debug/fire")
+async def ia_monitor_debug_fire(n: int = 6):
+    """
+    Inyecta N eventos sintéticos en el event bus — útil para validar que
+    el pipeline WebSocket → Frontend funciona sin necesidad de correr
+    comparaciones reales. NO usar en producción.
+    """
+    import random
+
+    capas = [
+        ("pre_ratio",        "reject",  "Ratio muy bajo — descarta sin cargar IA"),
+        ("capa_0_etim",      "pass_through", "Misma familia ETIM EC000123"),
+        ("capa_0_5_marca",   "reject",  "Marcas incompatibles: STANLEY vs BOSCH"),
+        ("capa_1_unit",      "pass_through", "Unidades equivalentes: 8mm ≡ 8mm"),
+        ("capa_1_5_graph",   "reject",  "Nodo 'largo_raw' divergente: 1 vs 2"),
+        ("capa_2_embedding", "match",   "Coseno 0.91 — confianza alta"),
+        ("capa_3_llm",       "match",   "LLM ratifica con Chain-of-Thought"),
+        ("cache",            "cache_hit","Decisión recuperada del caché L1"),
+    ]
+
+    productos = [
+        ("Perno hexagonal 8x1 ZN", "STANLEY", "FerreteriaA"),
+        ("Perno hexagonal 8x2 ZN", "BOSCH",   "FerreteriaB"),
+        ('Tornillo autorroscante 1/2"', "HILTI", "DepotC"),
+        ("Tornillo autorroscante 12.7mm", "MAKITA", "DepotD"),
+        ("Clavo galvanizado 3 pulgadas", "3M", "DistriE"),
+        ("Clavo galvanizado 75mm", "SIKA", "DistriF"),
+    ]
+
+    emitted = 0
+    for i in range(max(1, min(n, 50))):
+        layer, decision, razon = random.choice(capas)
+        pa = random.choice(productos)
+        pb = random.choice(productos)
+        publish_event(MatchEvent(
+            event_type="layer_decision",
+            layer=layer,
+            decision=decision,
+            producto_a=ProductoRef(id=i*2, sku=f"A{i}", nombre=pa[0], marca=pa[1], proveedor=pa[2]),
+            producto_b=ProductoRef(id=i*2+1, sku=f"B{i}", nombre=pb[0], marca=pb[1], proveedor=pb[2]),
+            confidence=round(random.uniform(0.0, 1.0), 3),
+            similitud_coseno=round(random.uniform(0.5, 0.99), 3),
+            razon=razon,
+            latencia_ms=round(random.uniform(0.5, 120.0), 2),
+            tokens=random.randint(0, 450),
+            costo_usd=round(random.uniform(0.0, 0.0025), 6),
+            metodo="debug_fire",
+        ))
+        emitted += 1
+
+    return {"emitted": emitted, "subscribers": subscriber_count()}

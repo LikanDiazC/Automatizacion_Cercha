@@ -249,24 +249,17 @@ _register(
 
 
 # ---------------------------------------------------------------------------
-# Extracción de atributos del nombre del producto
+# Extracción de atributos — Pipeline NER (spaCy)
 # ---------------------------------------------------------------------------
-
-# Regex para medidas comunes en nombres de productos de ferretería chilena
-_DIMENSION_PATTERNS = {
-    "diametro_imperial": re.compile(
-        r'(\d+/\d+|\d+)\s*[xX×]\s*(\d+(?:/\d+)?)\s*(?:"| ?pulgadas?| ?pulg| ?plg)',
-        re.IGNORECASE
-    ),
-    "diametro_metrico": re.compile(
-        r'[mM](\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)',
-    ),
-    "medida_simple_imperial": re.compile(
-        r'(\d+/\d+|\d+)\s*(?:"|pulgadas?|pulg|plg)',
-        re.IGNORECASE,
-    ),
-    "medida_mm": re.compile(r'(\d+(?:\.\d+)?)\s*mm\b', re.IGNORECASE),
-}
+#
+# Reemplaza el enfoque puramente regex por un pipeline basado en spaCy
+# `Matcher` + `PhraseMatcher` operando sobre tokens. Esto nos da:
+#   - Robustez frente a espaciados/puntuación
+#   - Separación limpia entre “tokenización” y “extracción semántica”
+#   - Base para migrar a un NER entrenado (ej. custom ner pipeline)
+#
+# Si spaCy no está instalado, hacemos fallback a los regex legacy para
+# no romper el pipeline ni los tests en CI mínimos.
 
 _MATERIAL_KEYWORDS = {
     "acero inoxidable": ["inoxidable", "inox", "stainless", "a2", "a4", "304", "316"],
@@ -278,27 +271,217 @@ _MATERIAL_KEYWORDS = {
     "acero": ["acero", "steel"],
 }
 
+_CABEZA_VOCAB = [
+    "hexagonal", "hex", "phillips", "allen", "torx", "estrella",
+    "avellanada", "redonda", "plana", "pan",
+]
 
-def extract_product_attributes(nombre: str, marca: str = "", etim_class: Optional[ETIMClass] = None) -> dict:
+# Regex fallback (también usados por el tokenizador de spaCy para dimensiones
+# que spaCy tokeniza como un solo token — ej. "8x1", "M6x20", "1/4").
+_RE_NXN = re.compile(r"^(\d+(?:\.\d+)?(?:/\d+)?)[xX×](\d+(?:\.\d+)?(?:/\d+)?)$")
+_RE_METRIC_NXN = re.compile(r"^[mM](\d+(?:\.\d+)?)[xX×](\d+(?:\.\d+)?)$")
+_RE_MM = re.compile(r"^(\d+(?:\.\d+)?)\s*mm$", re.IGNORECASE)
+_RE_INCH = re.compile(r"^(\d+/\d+|\d+)(?:\"|pulg|plg|pulgadas?)?$", re.IGNORECASE)
+
+
+_SPACY_NLP = None          # Pipeline cargado perezosamente
+_SPACY_MATCHER = None
+_SPACY_AVAILABLE = None    # None = sin comprobar; True/False luego
+
+
+def _load_spacy_pipeline():
     """
-    Extrae atributos técnicos del nombre de un producto.
+    Carga perezosa de un pipeline spaCy ligero.
+
+    Estrategia:
+      1. Intentar `es_core_news_sm` (español, NER real si está disponible)
+      2. Fallback a `spacy.blank("es")` (tokenizer-only) que es suficiente
+         para Matcher/PhraseMatcher sobre dimensiones/materiales.
+      3. Si spaCy no está instalado → None (fallback a regex legacy).
 
     Returns:
-        Dict con claves como "diametro", "largo", "material", etc.
+        (nlp, matcher) o (None, None) si no hay spaCy.
     """
-    attrs = {}
+    global _SPACY_NLP, _SPACY_MATCHER, _SPACY_AVAILABLE
+    if _SPACY_AVAILABLE is False:
+        return None, None
+    if _SPACY_NLP is not None:
+        return _SPACY_NLP, _SPACY_MATCHER
+
+    try:
+        import spacy
+        from spacy.matcher import Matcher
+    except ImportError:
+        logger.warning("spaCy no disponible — usando fallback regex")
+        _SPACY_AVAILABLE = False
+        return None, None
+
+    nlp = None
+    try:
+        nlp = spacy.load("es_core_news_sm", disable=["parser", "lemmatizer"])
+        logger.info("spaCy pipeline 'es_core_news_sm' cargado")
+    except Exception:
+        try:
+            nlp = spacy.blank("es")
+            logger.info("spaCy pipeline blank('es') cargado (fallback)")
+        except Exception as exc:
+            logger.warning("No se pudo cargar ningún pipeline spaCy: %s", exc)
+            _SPACY_AVAILABLE = False
+            return None, None
+
+    matcher = Matcher(nlp.vocab)
+
+    # Patrón 1 — Dimensión NxN (ej: "8x1", "1/4x2"), con o sin sufijo
+    matcher.add("DIM_NXN", [
+        [{"TEXT": {"REGEX": r"^\d+(?:\.\d+)?(?:/\d+)?$"}},
+         {"LOWER": {"IN": ["x", "×"]}},
+         {"TEXT": {"REGEX": r"^\d+(?:\.\d+)?(?:/\d+)?$"}}],
+        # Caso ya tokenizado como un único token "8x1"
+        [{"TEXT": {"REGEX": r"^\d+(?:\.\d+)?[xX×]\d+(?:\.\d+)?$"}}],
+    ])
+
+    # Patrón 2 — Dimensión métrica M<d>x<l> (ej: "M6x20")
+    matcher.add("DIM_METRIC", [
+        [{"TEXT": {"REGEX": r"^[mM]\d+(?:\.\d+)?[xX×]\d+(?:\.\d+)?$"}}],
+        [{"LOWER": {"REGEX": r"^m\d+$"}},
+         {"LOWER": {"IN": ["x", "×"]}},
+         {"TEXT": {"REGEX": r"^\d+(?:\.\d+)?$"}}],
+    ])
+
+    # Patrón 3 — Medida en milímetros ("50mm" o "50 mm")
+    matcher.add("DIM_MM", [
+        [{"TEXT": {"REGEX": r"^\d+(?:\.\d+)?mm$"}}],
+        [{"LIKE_NUM": True}, {"LOWER": "mm"}],
+    ])
+
+    # Patrón 4 — Medida en pulgadas ("1/4\"" o "1/4 pulg")
+    matcher.add("DIM_INCH", [
+        [{"TEXT": {"REGEX": r"^\d+/\d+$"}},
+         {"LOWER": {"IN": ["\"", "pulg", "plg", "pulgada", "pulgadas"]}}],
+        [{"TEXT": {"REGEX": r"^\d+(?:/\d+)?\"$"}}],
+    ])
+
+    # Patrón 5 — Material (lista cerrada)
+    material_terms = set()
+    for kws in _MATERIAL_KEYWORDS.values():
+        material_terms.update(k.lower() for k in kws)
+    matcher.add("MATERIAL", [
+        [{"LOWER": {"IN": sorted(material_terms)}}],
+    ])
+
+    # Patrón 6 — Tipo de cabeza
+    matcher.add("CABEZA", [
+        [{"LOWER": {"IN": _CABEZA_VOCAB}}],
+    ])
+
+    _SPACY_NLP = nlp
+    _SPACY_MATCHER = matcher
+    _SPACY_AVAILABLE = True
+    return nlp, matcher
+
+
+def _material_from_token(token_text: str) -> Optional[str]:
+    t = token_text.lower()
+    for material, keywords in _MATERIAL_KEYWORDS.items():
+        if t in (k.lower() for k in keywords):
+            return material
+    return None
+
+
+def _parse_dim_token(text: str) -> dict:
+    """
+    Dado un token tipo '8x1', 'M6x20', '50mm', '1/4"', devuelve dict parcial.
+    """
+    out: dict = {}
+    t = text.strip()
+
+    m = _RE_METRIC_NXN.match(t)
+    if m:
+        out["diametro_raw"] = f"M{m.group(1)}"
+        out["largo_raw"] = m.group(2)
+        return out
+
+    m = _RE_NXN.match(t)
+    if m:
+        out["diametro_raw"] = m.group(1)
+        out["largo_raw"] = m.group(2)
+        return out
+
+    m = _RE_MM.match(t)
+    if m:
+        out["medida_mm"] = float(m.group(1))
+        return out
+
+    m = _RE_INCH.match(t)
+    if m:
+        out["diametro_raw"] = m.group(1)
+        return out
+
+    return out
+
+
+def _extract_with_spacy(nombre: str) -> dict:
+    """Extracción usando pipeline spaCy + Matcher."""
+    nlp, matcher = _load_spacy_pipeline()
+    if nlp is None:
+        return _extract_with_regex(nombre)
+
+    attrs: dict = {}
+    doc = nlp(nombre)
+    matches = matcher(doc)
+
+    for match_id, start, end in matches:
+        label = nlp.vocab.strings[match_id]
+        span_text = doc[start:end].text
+
+        if label in ("DIM_NXN", "DIM_METRIC", "DIM_MM", "DIM_INCH"):
+            # Para spans multi-token, re-aplicamos el parser sobre el texto
+            # concatenado sin espacios (ej: "8 x 1" → "8x1").
+            compact = span_text.replace(" ", "")
+            parsed = _parse_dim_token(compact)
+            # No sobreescribir si ya extrajimos una dim más específica
+            for k, v in parsed.items():
+                attrs.setdefault(k, v)
+
+        elif label == "MATERIAL":
+            material = _material_from_token(span_text)
+            if material and "material" not in attrs:
+                attrs["material"] = material
+
+        elif label == "CABEZA":
+            if "cabeza" not in attrs:
+                cabeza = span_text.lower()
+                attrs["cabeza"] = "hexagonal" if cabeza == "hex" else cabeza
+
+    return attrs
+
+
+def _extract_with_regex(nombre: str) -> dict:
+    """Fallback puro regex (cuando spaCy no está instalado)."""
+    attrs: dict = {}
     nombre_lower = nombre.lower()
 
-    # Dimensiones
-    for pattern_name, pattern in _DIMENSION_PATTERNS.items():
-        m = pattern.search(nombre)
-        if m:
-            if "diametro" in pattern_name or "medida_simple" in pattern_name:
-                attrs["diametro_raw"] = m.group(1) if m.lastindex >= 1 else m.group(0)
-                if m.lastindex >= 2:
-                    attrs["largo_raw"] = m.group(2)
-            elif "medida_mm" in pattern_name:
-                attrs["medida_mm"] = float(m.group(1))
+    # Dimensiones NxN (genérico) — "Perno hex 8x1"
+    m = re.search(r"(\d+(?:\.\d+)?(?:/\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?(?:/\d+)?)", nombre)
+    if m:
+        attrs["diametro_raw"] = m.group(1)
+        attrs["largo_raw"] = m.group(2)
+
+    # Métrico M6x20
+    m = re.search(r"[mM](\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)", nombre)
+    if m and "diametro_raw" not in attrs:
+        attrs["diametro_raw"] = f"M{m.group(1)}"
+        attrs["largo_raw"] = m.group(2)
+
+    # Milímetros
+    m = re.search(r"(\d+(?:\.\d+)?)\s*mm\b", nombre, re.IGNORECASE)
+    if m:
+        attrs["medida_mm"] = float(m.group(1))
+
+    # Pulgadas simples
+    m = re.search(r"(\d+/\d+|\d+)\s*(?:\"|pulgadas?|pulg|plg)", nombre, re.IGNORECASE)
+    if m and "diametro_raw" not in attrs:
+        attrs["diametro_raw"] = m.group(1)
 
     # Material
     for material, keywords in _MATERIAL_KEYWORDS.items():
@@ -306,16 +489,38 @@ def extract_product_attributes(nombre: str, marca: str = "", etim_class: Optiona
             attrs["material"] = material
             break
 
-    # Marca
+    # Cabeza
+    for cabeza in _CABEZA_VOCAB:
+        if cabeza in nombre_lower:
+            attrs["cabeza"] = "hexagonal" if cabeza == "hex" else cabeza
+            break
+
+    return attrs
+
+
+def extract_product_attributes(
+    nombre: str,
+    marca: str = "",
+    etim_class: Optional[ETIMClass] = None,
+) -> dict:
+    """
+    Extrae atributos técnicos del nombre de un producto usando NER/Matcher.
+
+    Compatible con la firma y el formato de retorno de la versión regex:
+    devuelve un dict con claves entre:
+        diametro_raw, largo_raw, medida_mm, material, cabeza, marca
+
+    Internamente usa spaCy `Matcher` si está disponible, con fallback
+    automático a regex puro si spaCy no está instalado.
+    """
+    try:
+        attrs = _extract_with_spacy(nombre)
+    except Exception as exc:
+        logger.debug("Fallo pipeline spaCy, usando regex: %s", exc)
+        attrs = _extract_with_regex(nombre)
+
     if marca:
         attrs["marca"] = marca
-
-    # Cabeza (para tornillos/pernos)
-    for cabeza in ["hexagonal", "hex", "phillips", "allen", "torx", "estrella",
-                   "avellanada", "redonda", "plana", "pan"]:
-        if cabeza in nombre_lower:
-            attrs["cabeza"] = cabeza
-            break
 
     return attrs
 

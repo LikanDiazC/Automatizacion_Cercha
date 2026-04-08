@@ -22,6 +22,7 @@ import CRM from './pages/CRM';
 import CRMInbox from './pages/CRMInbox';
 import Precios from './pages/Precios';
 import AdminComparaciones from './pages/AdminComparaciones';
+import IAMonitor from './pages/IAMonitor';
 import LoginPage from './pages/LoginPage';
 import AuthSuccess from './pages/AuthSuccess';
 import { AdminContext } from './context/adminContext';
@@ -75,6 +76,7 @@ const navSections = [
       { to: '/cotizador',  label: 'Cotizador',   caption: 'Comparar proveedores',  icon: '🔍' },
       { to: '/precios',    label: 'Precios',     caption: 'Historial y alertas',   icon: '📊' },
       { to: '/admin-ia',   label: 'Monitor IA',  caption: 'Diagnostico matching',  icon: '🧠' },
+      { to: '/ia-monitor', label: 'Centro IA',   caption: 'Grafo en tiempo real',  icon: '🛰️' },
     ],
   },
   {
@@ -351,6 +353,7 @@ function AppMain() {
           <Route path="/cotizador" element={<Cotizador />} />
           <Route path="/precios" element={<Precios />} />
           <Route path="/admin-ia" element={<AdminComparaciones />} />
+          <Route path="/ia-monitor" element={<IAMonitor />} />
           <Route path="/crm" element={<CRM />} />
           <Route path="/crm/inbox" element={<CRMInbox />} />
           <Route path="*" element={<Navigate to="/" replace />} />

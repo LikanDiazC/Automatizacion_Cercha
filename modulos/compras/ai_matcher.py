@@ -43,13 +43,214 @@ from .models import (
     PromptVersion,
     NombreProveedor,
 )
-from .unit_normalizer import compare_units, normalized_unit_text, UnitComparisonResult
+from .unit_normalizer import (
+    compare_units,
+    normalized_unit_text,
+    to_millimeters,
+    mm_equivalent,
+    MM_EQUIVALENCE_TOLERANCE,
+    UnitComparisonResult,
+)
 from .etim_taxonomy import (
     classify_product,
     are_same_etim_class,
     get_critical_attributes_diff,
+    extract_product_attributes,
     ClassificationResult,
 )
+from .diccionarios import canonicalize, are_synonyms, contains_any_alias
+from .event_bus import publish_event, MatchEvent, ProductoRef, Layer, Decision
+
+
+# ---------------------------------------------------------------------------
+# Emisor de eventos para el Centro de Comando (WebSocket)
+# ---------------------------------------------------------------------------
+
+def _producto_ref(p: "ProductoProveedor") -> ProductoRef:
+    """Convierte un ProductoProveedor a un DTO ligero para el evento."""
+    return ProductoRef(
+        id=int(getattr(p, "id", 0) or 0),
+        sku=str(getattr(p, "sku_proveedor", "") or ""),
+        nombre=str(getattr(p, "nombre_raw", "") or "")[:160],
+        marca=str(getattr(p, "marca", "") or ""),
+        proveedor=str(getattr(p, "proveedor", "") or ""),
+    )
+
+
+def _emit_decision(
+    layer: "Layer",
+    decision: "Decision",
+    producto_a: "ProductoProveedor",
+    producto_b: "ProductoProveedor",
+    resultado: "MatchResult",
+    latencia_parcial_ms: float = 0.0,
+    event_type: str = "layer_decision",
+) -> None:
+    """
+    Publica un evento de decisión en el event bus.
+    Non-blocking, seguro frente a fallos (try/except interno).
+    """
+    try:
+        publish_event(MatchEvent(
+            event_type=event_type,  # type: ignore[arg-type]
+            layer=layer,
+            decision=decision,
+            producto_a=_producto_ref(producto_a),
+            producto_b=_producto_ref(producto_b),
+            confidence=float(resultado.confidence_score or 0.0),
+            similitud_coseno=float(resultado.similitud_coseno or 0.0),
+            razon=str(resultado.razon or "")[:240],
+            latencia_ms=float(latencia_parcial_ms or resultado.latencia_ms or 0.0),
+            tokens=int(resultado.tokens_usados or 0),
+            costo_usd=float(resultado.costo_usd or 0.0),
+            metodo=str(resultado.metodo or ""),
+        ))
+    except Exception as exc:
+        logger.debug("Evento WS no emitido (no bloqueante): %s", exc)
+
+
+# ---------------------------------------------------------------------------
+# Capa 1.5 — Cruce de Grafos Determinista (con Capa 1.25 integrada)
+# ---------------------------------------------------------------------------
+# Nodos estrictos (críticos para identidad física del producto).
+# Si ambos productos DEFINEN el mismo nodo y sus valores no coinciden
+# (tras normalización a mm + sinónimos), NO pueden ser el mismo SKU.
+_STRICT_NODES: tuple[str, ...] = (
+    "diametro_raw",
+    "largo_raw",
+    "medida_mm",
+    "material",
+    "cabeza",
+)
+
+# Nodos que representan dimensiones físicas lineales → se normalizan a mm.
+_DIMENSION_NODES: frozenset[str] = frozenset({"diametro_raw", "largo_raw", "medida_mm"})
+
+# Nodos que aceptan sinónimos de un diccionario externo.
+_SYNONYM_SECTIONS: dict[str, str] = {
+    "material": "materiales",
+    "cabeza": "cabezas",
+}
+
+
+def _normalize_node_value(key: str, value) -> tuple[str, Optional[float]]:
+    """
+    Normaliza un valor de nodo a una representación comparable.
+
+    Returns:
+        (forma_canonica_str, valor_mm_o_None)
+        - valor_mm_o_None es el valor numérico en mm si el nodo es dimensional.
+        - forma_canonica_str es el canónico de sinónimos (o el texto limpio).
+    """
+    if value is None or value == "":
+        return "", None
+
+    if key in _DIMENSION_NODES:
+        mm = to_millimeters(value)
+        if mm is not None:
+            return f"{mm:.2f}mm", mm
+        # Sin mm parseable: fallback a string limpio
+        return str(value).strip().lower(), None
+
+    section = _SYNONYM_SECTIONS.get(key)
+    if section:
+        canon = canonicalize(section, str(value))
+        if canon:
+            return canon, None
+        return str(value).strip().lower(), None
+
+    # Otros nodos: limpiar texto
+    return str(value).strip().lower(), None
+
+
+def cruzar_grafos_deterministas(
+    nombre_a: str, marca_a: str,
+    nombre_b: str, marca_b: str,
+) -> tuple[bool, str, dict]:
+    """
+    Capa 1.5 — Cruce determinista de nodos físicos (grafo de atributos).
+
+    Pipeline:
+      1. Extrae atributos crudos con classify_product + extract_product_attributes.
+      2. Aplica CAPA 1.25: normaliza cada dimensión a milímetros (1/2" ≡ 12.7mm).
+      3. Aplica diccionario de sinónimos para material/cabeza (inox ≡ stainless).
+      4. Compara nodo por nodo con tolerancia MM_EQUIVALENCE_TOLERANCE para
+         dimensiones y equivalencia canónica para categóricos.
+
+    Returns:
+        (compatible, razon, debug_info)
+    """
+    cls_a = classify_product(nombre_a, marca_a)
+    cls_b = classify_product(nombre_b, marca_b)
+
+    attrs_a = extract_product_attributes(nombre_a, marca_a,
+                                         cls_a.etim_class if cls_a else None)
+    attrs_b = extract_product_attributes(nombre_b, marca_b,
+                                         cls_b.etim_class if cls_b else None)
+
+    debug = {
+        "nodos_a": {k: attrs_a.get(k) for k in _STRICT_NODES if k in attrs_a},
+        "nodos_b": {k: attrs_b.get(k) for k in _STRICT_NODES if k in attrs_b},
+        "nodos_normalizados": {},
+        "conflictos": [],
+    }
+
+    for node in _STRICT_NODES:
+        if node in attrs_a and node in attrs_b:
+            canon_a, mm_a = _normalize_node_value(node, attrs_a[node])
+            canon_b, mm_b = _normalize_node_value(node, attrs_b[node])
+            debug["nodos_normalizados"][node] = {"a": canon_a, "b": canon_b}
+
+            if mm_a is not None and mm_b is not None:
+                # Comparación numérica con tolerancia (Capa 1.25)
+                if abs(mm_a - mm_b) > MM_EQUIVALENCE_TOLERANCE:
+                    debug["conflictos"].append(
+                        f"{node}: {attrs_a[node]!r} ({mm_a:.2f}mm) ≠ "
+                        f"{attrs_b[node]!r} ({mm_b:.2f}mm)"
+                    )
+            elif canon_a and canon_b and canon_a != canon_b:
+                debug["conflictos"].append(
+                    f"{node}: '{attrs_a[node]}' ≠ '{attrs_b[node]}' "
+                    f"(canónico: '{canon_a}' vs '{canon_b}')"
+                )
+
+    if debug["conflictos"]:
+        return False, "; ".join(debug["conflictos"]), debug
+
+    return True, "nodos compatibles", debug
+
+
+# ---------------------------------------------------------------------------
+# Capa 0.5 — Rechazo estricto por marca
+# ---------------------------------------------------------------------------
+
+def verificar_marcas_compatibles(
+    marca_a: Optional[str],
+    marca_b: Optional[str],
+) -> tuple[bool, str]:
+    """
+    Capa 0.5 — Si ambos productos declaran marca y NO son sinónimos/iguales,
+    rechaza el match inmediatamente.
+
+    Política:
+      • Si una (o ambas) marcas están vacías → no se puede decidir → pasa.
+      • Si las marcas son equivalentes por sinónimos → pasa.
+      • Si las marcas difieren → rechazo.
+
+    Returns:
+        (compatible, razon)
+    """
+    ma = (marca_a or "").strip()
+    mb = (marca_b or "").strip()
+
+    if not ma or not mb:
+        return True, "al menos una marca vacía — no se puede decidir por marca"
+
+    # Canonicalizar vía diccionario de sinónimos
+    if are_synonyms("marcas", ma, mb):
+        return True, f"marcas equivalentes: '{ma}' ≡ '{mb}'"
+
+    return False, f"marcas distintas: '{ma}' vs '{mb}'"
 
 logger = logging.getLogger(__name__)
 
@@ -683,6 +884,7 @@ async def comparar_productos(
     producto_b: ProductoProveedor,
     db: Session,
     query_original: str = "",
+    bypass_cache: bool = False,
 ) -> MatchResult:
     """
     Pipeline ComEM de 5 capas con observabilidad completa:
@@ -691,6 +893,11 @@ async def comparar_productos(
       Capa 2: Embeddings (cosine similarity)
       Capa 3: LLM Chain-of-Thought (zona gris)
       Capa 4: Jaccard Fallback
+
+    Args:
+        bypass_cache: Si True, ignora el caché de ComparacionPrecios y
+            vuelve a correr todas las capas. Útil para diagnóstico desde
+            el Centro IA (ver la decisión real capa por capa).
     """
     t_pipeline_start = time.perf_counter()
     lineage: dict = {"prompt_version": PROMPT_VERSION_TAG, "modelo": LLM_MODEL}
@@ -699,19 +906,28 @@ async def comparar_productos(
     # CACHE: si existe ComparacionPrecios reciente para este par → reusar
     # Evita re-llamar al LLM y re-embeddings para el mismo par durante
     # COMPARACION_CACHE_TTL_HORAS. Ahorra $$$ y latencia.
+    # Si bypass_cache=True, se saltea esta sección completa y el par
+    # vuelve a recorrer TODAS las capas del pipeline.
     # ══════════════════════════════════════════════════════════════════
     try:
-        from datetime import datetime, timedelta
-        _cache_limite = datetime.utcnow() - timedelta(hours=COMPARACION_CACHE_TTL_HORAS)
-        _cache_hit = (
-            db.query(ComparacionPrecios)
-            .filter(
-                ComparacionPrecios.producto_a_id == producto_a.id,
-                ComparacionPrecios.producto_b_id == producto_b.id,
-                ComparacionPrecios.calculado_at >= _cache_limite,
+        if bypass_cache:
+            logger.debug(
+                "Cache BYPASS forzado para par (%s vs %s)",
+                producto_a.sku_proveedor, producto_b.sku_proveedor,
             )
-            .first()
-        )
+            _cache_hit = None
+        else:
+            from datetime import datetime, timedelta
+            _cache_limite = datetime.utcnow() - timedelta(hours=COMPARACION_CACHE_TTL_HORAS)
+            _cache_hit = (
+                db.query(ComparacionPrecios)
+                .filter(
+                    ComparacionPrecios.producto_a_id == producto_a.id,
+                    ComparacionPrecios.producto_b_id == producto_b.id,
+                    ComparacionPrecios.calculado_at >= _cache_limite,
+                )
+                .first()
+            )
         if _cache_hit is not None:
             try:
                 razon_obj = json.loads(_cache_hit.razon_ia or "{}")
@@ -728,7 +944,7 @@ async def comparar_productos(
                 producto_b.sku_proveedor,
                 (datetime.utcnow() - _cache_hit.calculado_at),
             )
-            return MatchResult(
+            cached_result = MatchResult(
                 es_mismo_producto=(_cache_hit.confidence_score or 0.0) >= UMBRAL_LLM_MATCH,
                 confidence_score=float(_cache_hit.confidence_score or 0.0),
                 similitud_coseno=float(cached_lineage.get("embedding", {}).get("similitud_coseno") or 0.0),
@@ -739,6 +955,12 @@ async def comparar_productos(
                 costo_usd=0.0,
                 lineage=cached_lineage,
             )
+            _emit_decision(
+                "cache", "cache_hit", producto_a, producto_b, cached_result,
+                latencia_parcial_ms=cached_result.latencia_ms,
+                event_type="pipeline_end",
+            )
+            return cached_result
     except Exception as _cache_exc:
         logger.debug("Cache lookup falló (no bloqueante): %s", _cache_exc)
 
@@ -767,6 +989,8 @@ async def comparar_productos(
                 latencia_ms=(time.perf_counter() - t_pipeline_start) * 1000, lineage=lineage,
             )
             _guardar_comparacion(producto_a, producto_b, resultado, db)
+            _emit_decision("pre_ratio", "reject", producto_a, producto_b, resultado,
+                           latencia_parcial_ms=resultado.latencia_ms)
             return resultado
 
     # ══════════════════════════════════════════════════════════════════
@@ -787,6 +1011,52 @@ async def comparar_productos(
         _guardar_comparacion(producto_a, producto_b, resultado, db)
         _log_ai_call(db, "etim_classify", etim_lat, producto_a_id=producto_a.id,
                      producto_b_id=producto_b.id, resultado_json=etim_reason)
+        _emit_decision("capa_0_etim", "reject", producto_a, producto_b, resultado,
+                       latencia_parcial_ms=etim_lat)
+        return resultado
+
+    # ══════════════════════════════════════════════════════════════════
+    # CAPA 0.5: RECHAZO ESTRICTO POR MARCA
+    # Si ambos productos declaran marca y NO son sinónimos (según el
+    # diccionario externo), rechazamos inmediatamente. Evita falsos
+    # positivos cuando el texto es muy parecido pero el fabricante difiere
+    # (ej. Stanley vs Bosch).
+    # ══════════════════════════════════════════════════════════════════
+    t0 = time.perf_counter()
+    marca_ok, marca_reason = verificar_marcas_compatibles(
+        producto_a.marca, producto_b.marca,
+    )
+    marca_lat = (time.perf_counter() - t0) * 1000
+    lineage["marca_check"] = {
+        "compatible": marca_ok,
+        "razon": marca_reason,
+        "marca_a": producto_a.marca or "",
+        "marca_b": producto_b.marca or "",
+        "latencia_ms": round(marca_lat, 2),
+    }
+
+    if not marca_ok:
+        logger.info(
+            "Capa 0.5 rechazo por marca (%s vs %s): %s",
+            producto_a.sku_proveedor, producto_b.sku_proveedor, marca_reason,
+        )
+        resultado = MatchResult(
+            es_mismo_producto=False,
+            confidence_score=0.0,
+            similitud_coseno=0.0,
+            razon=f"Marcas incompatibles: {marca_reason}",
+            metodo="marca_rechazo",
+            latencia_ms=etim_lat + marca_lat,
+            lineage=lineage,
+        )
+        _guardar_comparacion(producto_a, producto_b, resultado, db)
+        _log_ai_call(
+            db, "marca_check", marca_lat,
+            producto_a_id=producto_a.id, producto_b_id=producto_b.id,
+            resultado_json=marca_reason,
+        )
+        _emit_decision("capa_0_5_marca", "reject", producto_a, producto_b, resultado,
+                       latencia_parcial_ms=marca_lat)
         return resultado
 
     # Extraer diferencias de atributos ETIM para contexto LLM
@@ -828,9 +1098,57 @@ async def comparar_productos(
         _guardar_comparacion(producto_a, producto_b, resultado, db)
         _log_ai_call(db, "unit_parse", unit_lat, producto_a_id=producto_a.id,
                      producto_b_id=producto_b.id, resultado_json=unit_result.razon)
+        _emit_decision("capa_1_unit", "reject", producto_a, producto_b, resultado,
+                       latencia_parcial_ms=unit_lat)
         return resultado
 
     unit_context = f"ANÁLISIS DE UNIDADES: {unit_result.razon}"
+
+    # ══════════════════════════════════════════════════════════════════
+    # CAPA 1.5: CRUCE DE GRAFOS DETERMINISTA
+    # Extrae nodos físicos (diametro_raw, largo_raw, medida_mm, material,
+    # cabeza) con classify_product + extract_product_attributes. Si ambos
+    # productos definen el mismo nodo con valores divergentes → rechazo
+    # inmediato con confidence=0.0 (imposible que sean el mismo SKU).
+    # ══════════════════════════════════════════════════════════════════
+    t0 = time.perf_counter()
+    graph_ok, graph_reason, graph_debug = cruzar_grafos_deterministas(
+        producto_a.nombre_raw, producto_a.marca or "",
+        producto_b.nombre_raw, producto_b.marca or "",
+    )
+    graph_lat = (time.perf_counter() - t0) * 1000
+    lineage["graph_cross"] = {
+        "compatible": graph_ok,
+        "razon": graph_reason,
+        "nodos_a": graph_debug.get("nodos_a", {}),
+        "nodos_b": graph_debug.get("nodos_b", {}),
+        "conflictos": graph_debug.get("conflictos", []),
+        "latencia_ms": round(graph_lat, 2),
+    }
+
+    if not graph_ok:
+        logger.info(
+            "Capa 1.5 rechazo determinista (%s vs %s): %s",
+            producto_a.sku_proveedor, producto_b.sku_proveedor, graph_reason,
+        )
+        resultado = MatchResult(
+            es_mismo_producto=False,
+            confidence_score=0.0,
+            similitud_coseno=0.0,
+            razon=f"Nodos físicos incompatibles: {graph_reason}",
+            metodo="graph_cross_rechazo",
+            latencia_ms=etim_lat + unit_lat + graph_lat,
+            lineage=lineage,
+        )
+        _guardar_comparacion(producto_a, producto_b, resultado, db)
+        _log_ai_call(
+            db, "graph_cross", graph_lat,
+            producto_a_id=producto_a.id, producto_b_id=producto_b.id,
+            resultado_json=json.dumps(graph_debug, ensure_ascii=False),
+        )
+        _emit_decision("capa_1_5_graph", "reject", producto_a, producto_b, resultado,
+                       latencia_parcial_ms=graph_lat)
+        return resultado
 
     # ══════════════════════════════════════════════════════════════════
     # MODO SIN API KEY → Capa 4 (Jaccard Fallback)
@@ -840,6 +1158,13 @@ async def comparar_productos(
         resultado.lineage = lineage
         resultado.latencia_ms += etim_lat + unit_lat
         _guardar_comparacion(producto_a, producto_b, resultado, db)
+        _emit_decision(
+            "capa_4_jaccard",
+            "match" if resultado.es_mismo_producto else "reject",
+            producto_a, producto_b, resultado,
+            latencia_parcial_ms=resultado.latencia_ms,
+            event_type="pipeline_end",
+        )
         return resultado
 
     # ══════════════════════════════════════════════════════════════════
@@ -854,6 +1179,13 @@ async def comparar_productos(
         resultado = comparar_textualmente(producto_a, producto_b)
         resultado.lineage = lineage
         _guardar_comparacion(producto_a, producto_b, resultado, db)
+        _emit_decision(
+            "capa_4_jaccard",
+            "match" if resultado.es_mismo_producto else "reject",
+            producto_a, producto_b, resultado,
+            latencia_parcial_ms=resultado.latencia_ms,
+            event_type="pipeline_end",
+        )
         return resultado
 
     sim = similitud_coseno(vec_a, vec_b)
@@ -869,6 +1201,8 @@ async def comparar_productos(
             latencia_ms=total_lat, lineage=lineage,
         )
         _guardar_comparacion(producto_a, producto_b, resultado, db)
+        _emit_decision("capa_2_embedding", "match", producto_a, producto_b, resultado,
+                       latencia_parcial_ms=emb_lat, event_type="pipeline_end")
         return resultado
 
     if sim < UMBRAL_RECHAZO_DIRECTO:
@@ -880,6 +1214,8 @@ async def comparar_productos(
             latencia_ms=total_lat, lineage=lineage,
         )
         _guardar_comparacion(producto_a, producto_b, resultado, db)
+        _emit_decision("capa_2_embedding", "reject", producto_a, producto_b, resultado,
+                       latencia_parcial_ms=emb_lat, event_type="pipeline_end")
         return resultado
 
     # ══════════════════════════════════════════════════════════════════
@@ -963,6 +1299,13 @@ async def comparar_productos(
         )
 
     _guardar_comparacion(producto_a, producto_b, resultado, db)
+    _emit_decision(
+        "capa_3_llm",
+        "match" if resultado.es_mismo_producto else "reject",
+        producto_a, producto_b, resultado,
+        latencia_parcial_ms=resultado.latencia_ms,
+        event_type="pipeline_end",
+    )
     return resultado
 
 

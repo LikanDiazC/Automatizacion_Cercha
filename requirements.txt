@@ -16,6 +16,11 @@ apscheduler>=3.10.0
 # ── IA / Normalización de unidades ──
 quantulum3>=0.9.0
 pint>=0.24
+# ── IA / NER (Capa 1.5 - con fallback a regex si no está disponible) ──
+spacy>=3.7.0
+# ── Testing ──
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
 # ── Auth / OAuth2 / JWT / Inbox security ──
 authlib>=1.3.0
 python-jose[cryptography]>=3.3.0

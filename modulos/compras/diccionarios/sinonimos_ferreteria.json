@@ -1,0 +1,52 @@
+{
+  "_meta": {
+    "descripcion": "Diccionario canónico de sinónimos para el motor de matching ferretero.",
+    "formato": "Cada sección es un map 'canónico' -> [aliases]. Al normalizar, cualquier alias se reemplaza por la clave canónica.",
+    "version": "1.0.0"
+  },
+  "cabezas": {
+    "hexagonal": ["hex", "hexagonal", "hexa"],
+    "phillips":  ["phillips", "cruz", "philips"],
+    "allen":     ["allen", "hexagono interior", "hex interior"],
+    "torx":      ["torx", "estrella", "star"],
+    "avellanada":["avellanada", "avellanado", "countersunk"],
+    "redonda":   ["redonda", "redondo", "round"],
+    "plana":     ["plana", "plano", "flat"],
+    "pan":       ["pan", "paneo"]
+  },
+  "materiales": {
+    "acero inoxidable":  ["inoxidable", "inox", "stainless", "a2", "a4", "304", "316", "acero inox"],
+    "acero galvanizado": ["galvanizado", "galvanized", "hdg", "gvz"],
+    "acero zincado":     ["zincado", "zinc", "zn", "electrozincado", "zincada"],
+    "acero pavonado":    ["pavonado", "fosfatado", "black", "pavonada"],
+    "bronce":            ["bronce", "bronze", "laton", "latón", "brass"],
+    "aluminio":          ["aluminio", "aluminum", "alu"],
+    "acero":             ["acero", "steel"]
+  },
+  "marcas": {
+    "stanley":       ["stanley", "stanley tools"],
+    "bosch":         ["bosch", "robert bosch"],
+    "makita":        ["makita"],
+    "dewalt":        ["dewalt", "de walt", "de-walt"],
+    "black_decker":  ["black&decker", "black decker", "blackdecker", "b&d"],
+    "milwaukee":     ["milwaukee"],
+    "hilti":         ["hilti"],
+    "simpson":       ["simpson", "simpson strong tie", "simpson strong-tie"],
+    "3m":            ["3m", "three m"],
+    "sika":          ["sika"],
+    "fischer":       ["fischer", "fisher"],
+    "irwin":         ["irwin"]
+  },
+  "unidades_genericas": {
+    "pulgada": ["pulgada", "pulgadas", "pulg", "plg", "\""],
+    "milimetro": ["mm", "milimetro", "milimetros", "milímetro", "milímetros"]
+  },
+  "normas": {
+    "DIN 931": ["din 931", "din931", "hex parcial"],
+    "DIN 933": ["din 933", "din933", "hex total"],
+    "ISO 4014": ["iso 4014", "iso4014"],
+    "ISO 4017": ["iso 4017", "iso4017"],
+    "ASTM A325": ["astm a325", "a325"],
+    "ASTM A490": ["astm a490", "a490"]
+  }
+}

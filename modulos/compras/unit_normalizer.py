@@ -64,6 +64,131 @@ for _def in _CUSTOM_DEFS:
 
 
 # ---------------------------------------------------------------------------
+# Capa 1.25 — Normalización de dimensiones a milímetros
+# ---------------------------------------------------------------------------
+#
+# Convierte cualquier expresión de longitud (pulgadas, fracciones, métrica)
+# a un valor flotante en MILÍMETROS. Se usa desde Capa 1.5 para que
+# "1/2\"" y "12.7mm" sean reconocidos como el mismo nodo.
+#
+# Tabla de roscas métricas M = diámetro nominal en mm (es igual al número).
+# Para casos raros como M1.6, M2.5 se respeta el decimal literal.
+
+# Tolerancia cuando se comparan dos mm "equivalentes"
+MM_EQUIVALENCE_TOLERANCE: float = 0.5  # ±0.5 mm ≈ 0.02"
+
+_RE_FRACTION = re.compile(r"^(\d+)\s*/\s*(\d+)$")
+_RE_MIXED_FRACTION = re.compile(r"^(\d+)\s+(\d+)/(\d+)$")  # "1 1/2"
+_RE_METRIC = re.compile(r"^[mM](\d+(?:\.\d+)?)$")
+_RE_INCH_LITERAL = re.compile(
+    r"^(\d+(?:\.\d+)?(?:/\d+)?|\d+\s+\d+/\d+)\s*(?:\"|pulg|plg|pulgadas?)?$",
+    re.IGNORECASE,
+)
+_RE_MM_LITERAL = re.compile(r"^(\d+(?:\.\d+)?)\s*mm$", re.IGNORECASE)
+_RE_CM_LITERAL = re.compile(r"^(\d+(?:\.\d+)?)\s*cm$", re.IGNORECASE)
+
+
+def _parse_numeric_token(token: str) -> Optional[float]:
+    """Parsea '1/2', '1 1/2', '3.5', '3' a float."""
+    if not token:
+        return None
+    t = token.strip()
+
+    m = _RE_MIXED_FRACTION.match(t)
+    if m:
+        whole, num, den = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        return whole + (num / den) if den else None
+
+    m = _RE_FRACTION.match(t)
+    if m:
+        num, den = int(m.group(1)), int(m.group(2))
+        return (num / den) if den else None
+
+    try:
+        return float(t)
+    except ValueError:
+        return None
+
+
+def to_millimeters(value) -> Optional[float]:
+    """
+    Normaliza una dimensión a milímetros (float).
+
+    Acepta:
+      • Números (int/float)        → se asumen mm si > 0.5, si no se asumen pulgadas
+      • Strings 'M6', 'M8', 'M1.6' → mm directo (norma ISO: M<d> == d mm)
+      • Strings '1/2', '3/8', '1'  → pulgadas → mm (×25.4)
+      • Strings '1/2"', '1 1/2 pulg', '3/8 plg' → pulgadas → mm
+      • Strings '50mm', '12.7mm'   → mm directo
+      • Strings '5cm'              → cm → mm
+
+    Returns:
+        float en mm, o None si no se pudo parsear.
+    """
+    if value is None:
+        return None
+
+    # Número puro → heurística: valores pequeños (<1) se asumen pulgadas
+    if isinstance(value, (int, float)):
+        v = float(value)
+        # Rangos ambiguos los dejamos tal cual en mm
+        return v
+
+    s = str(value).strip()
+    if not s:
+        return None
+
+    # Normalizamos comillas curvas y espacios
+    s_clean = s.replace("“", '"').replace("”", '"').replace("''", '"').strip()
+
+    # 1) mm literal
+    m = _RE_MM_LITERAL.match(s_clean)
+    if m:
+        return float(m.group(1))
+
+    # 2) cm literal
+    m = _RE_CM_LITERAL.match(s_clean)
+    if m:
+        return float(m.group(1)) * 10.0
+
+    # 3) Métrica M<d>
+    m = _RE_METRIC.match(s_clean)
+    if m:
+        return float(m.group(1))
+
+    # 4) Pulgadas (con o sin sufijo) — incluye fracciones y mixtas
+    m = _RE_INCH_LITERAL.match(s_clean)
+    if m:
+        parsed = _parse_numeric_token(m.group(1))
+        if parsed is not None:
+            has_suffix = any(x in s_clean.lower() for x in ('"', "pulg", "plg", "pulgada"))
+            if has_suffix or "/" in s_clean:
+                # Explicitamente pulgadas (o fracción → convencionalmente pulgada en ferretería)
+                return parsed * 25.4
+            # Sin sufijo y sin fracción → ambigüo; devolvemos mm literal
+            return parsed
+
+    # 5) Fallback genérico: intentar con pint
+    try:
+        q = ureg.parse_expression(s_clean)
+        if hasattr(q, "to"):
+            return float(q.to("millimeter").magnitude)
+    except Exception:
+        pass
+
+    return None
+
+
+def mm_equivalent(a, b, tol: float = MM_EQUIVALENCE_TOLERANCE) -> bool:
+    """True si dos dimensiones (en cualquier formato) son equivalentes en mm."""
+    ma = to_millimeters(a)
+    mb = to_millimeters(b)
+    if ma is None or mb is None:
+        return False
+    return abs(ma - mb) <= tol
+
+
+# ---------------------------------------------------------------------------
 # Dataclass de resultado
 # ---------------------------------------------------------------------------
 
