@@ -28,7 +28,6 @@ import {
   ListItemText,
   Divider,
   Chip,
-  Button,
   CircularProgress,
   Alert,
   FormControlLabel,
@@ -42,7 +41,6 @@ import {
   Avatar,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import MarkEmailUnreadIcon from '@mui/icons-material/MarkEmailUnread';
 import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead';
 import BusinessIcon from '@mui/icons-material/Business';
@@ -75,7 +73,6 @@ function BandejaTab() {
   const [q, setQ] = useState('');
   const [soloNoLeidos, setSoloNoLeidos] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
   const [selected, setSelected] = useState(null);
   const [estado, setEstado] = useState(null);
@@ -106,9 +103,18 @@ function BandejaTab() {
     }
   }, []);
 
+  // Auto-sync al montar y luego auto-refresh cada 60 segundos
   useEffect(() => {
-    cargar();
-    cargarEstado();
+    const autoSync = async () => {
+      try {
+        await inboxApi.syncAhora();
+      } catch { /* ignore */ }
+      await cargar();
+      await cargarEstado();
+    };
+    autoSync();
+    const interval = setInterval(autoSync, 60000);
+    return () => clearInterval(interval);
   }, [cargar, cargarEstado]);
 
   const abrir = async (mensaje) => {
@@ -121,23 +127,6 @@ function BandejaTab() {
       );
     } catch (e) {
       setError('No se pudo abrir el mensaje');
-    }
-  };
-
-  const sincronizar = async () => {
-    setSyncing(true);
-    setError(null);
-    try {
-      const r = await inboxApi.syncAhora();
-      if (r.error) {
-        setError(`Sync: ${r.error}`);
-      }
-      await cargar();
-      await cargarEstado();
-    } catch (e) {
-      setError('Error al sincronizar');
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -158,30 +147,22 @@ function BandejaTab() {
       {/* Panel izquierdo: lista */}
       <Paper sx={{ flex: 1, minWidth: 340, maxWidth: { md: 460 }, p: 0 }}>
         <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0' }}>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-            <TextField
-              size="small"
-              fullWidth
-              placeholder="Buscar asunto o remitente"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && cargar()}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <Tooltip title="Sincronizar ahora">
-              <span>
-                <IconButton onClick={sincronizar} disabled={syncing}>
-                  {syncing ? <CircularProgress size={20} /> : <RefreshIcon />}
-                </IconButton>
-              </span>
-            </Tooltip>
-          </Stack>
+          <TextField
+            size="small"
+            fullWidth
+            placeholder="Buscar asunto o remitente"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && cargar()}
+            sx={{ mb: 1 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
           <FormControlLabel
             control={
               <Switch
@@ -209,7 +190,7 @@ function BandejaTab() {
         ) : items.length === 0 ? (
           <Box sx={{ p: 4, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
-              No hay correos. Pulsa el botón de refresco para sincronizar.
+              No hay correos. Sincronizando automáticamente...
             </Typography>
           </Box>
         ) : (

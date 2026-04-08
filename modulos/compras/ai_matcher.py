@@ -24,6 +24,7 @@ import hashlib
 import json
 import logging
 import math
+import random
 import re
 import asyncio
 import time
@@ -58,6 +59,10 @@ logger = logging.getLogger(__name__)
 UMBRAL_MATCH_DIRECTO: float = 0.92
 UMBRAL_RECHAZO_DIRECTO: float = 0.60
 UMBRAL_LLM_MATCH: float = 0.75
+
+# TTL del cache de comparaciones en ComparacionPrecios.
+# Evita re-llamar al LLM para el mismo par A/B durante 24h.
+COMPARACION_CACHE_TTL_HORAS: int = 24
 EMBEDDING_MODEL = "gemini-embedding-001"
 LLM_MODEL = "gemini-2.5-flash"
 LLM_MAX_TOKENS_RESPUESTA = 2048
@@ -281,6 +286,13 @@ async def generar_y_guardar_embedding(
     if producto.embedding_json:
         return json.loads(producto.embedding_json)
 
+    # Skip productos sin precio: suelen ser listados "fantasma" (sin stock
+    # o con error de scraping). Generar embedding para ellos es desperdicio
+    # de cuota LLM y contamina búsquedas.
+    _precio = (producto.precio_oferta or producto.precio_clp or 0) or 0
+    if _precio <= 0:
+        raise ValueError(f"Producto {producto.id} sin precio — embedding omitido")
+
     texto = _construir_texto_embedding(producto)
     resultado = await generar_embedding(texto)
     producto.embedding_json = json.dumps(resultado.vector)
@@ -457,26 +469,17 @@ Ejecuta los 3 pasos del framework ComEM y entrega tu veredicto.
         "temperature": 0.1,
     }
 
-    _LLM_RATE_LIMIT_DELAY = 2.0
-    await asyncio.sleep(_LLM_RATE_LIMIT_DELAY)
-
     t0 = time.perf_counter()
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.post(
-            "https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions",
-            headers=_get_openai_headers(),
-            json=payload,
-        )
-
-    if resp.status_code == 429:
-        logger.warning("Rate limit (429) — reintentando en 10s...")
-        await asyncio.sleep(10)
+    _LLM_URL = "https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions"
+    resp = None
+    for _intento in range(3):
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(
-                "https://generativelanguage.googleapis.com/v1beta/openai/v1/chat/completions",
-                headers=_get_openai_headers(),
-                json=payload,
-            )
+            resp = await client.post(_LLM_URL, headers=_get_openai_headers(), json=payload)
+        if resp.status_code != 429:
+            break
+        wait = (2 ** _intento) + random.uniform(0, 1)
+        logger.warning("Rate limit (429) — reintentando en %.1fs (intento %d/3)...", wait, _intento + 1)
+        await asyncio.sleep(wait)
 
     latencia = (time.perf_counter() - t0) * 1000
 
@@ -600,6 +603,72 @@ async def comparar_productos(
     """
     t_pipeline_start = time.perf_counter()
     lineage: dict = {"prompt_version": PROMPT_VERSION_TAG, "modelo": LLM_MODEL}
+
+    # ══════════════════════════════════════════════════════════════════
+    # CACHE: si existe ComparacionPrecios reciente para este par → reusar
+    # Evita re-llamar al LLM y re-embeddings para el mismo par durante
+    # COMPARACION_CACHE_TTL_HORAS. Ahorra $$$ y latencia.
+    # ══════════════════════════════════════════════════════════════════
+    try:
+        from datetime import datetime, timedelta
+        _cache_limite = datetime.utcnow() - timedelta(hours=COMPARACION_CACHE_TTL_HORAS)
+        _cache_hit = (
+            db.query(ComparacionPrecios)
+            .filter(
+                ComparacionPrecios.producto_a_id == producto_a.id,
+                ComparacionPrecios.producto_b_id == producto_b.id,
+                ComparacionPrecios.calculado_at >= _cache_limite,
+            )
+            .first()
+        )
+        if _cache_hit is not None:
+            try:
+                razon_obj = json.loads(_cache_hit.razon_ia or "{}")
+            except Exception:
+                razon_obj = {}
+            try:
+                cached_lineage = json.loads(_cache_hit.lineage_json or "{}")
+            except Exception:
+                cached_lineage = {}
+            cached_lineage["cache_hit"] = True
+            logger.info(
+                "Cache HIT comparacion (%s vs %s), edad=%s",
+                producto_a.sku_proveedor,
+                producto_b.sku_proveedor,
+                (datetime.utcnow() - _cache_hit.calculado_at),
+            )
+            return MatchResult(
+                es_mismo_producto=(_cache_hit.confidence_score or 0.0) >= UMBRAL_LLM_MATCH,
+                confidence_score=float(_cache_hit.confidence_score or 0.0),
+                similitud_coseno=float(cached_lineage.get("embedding", {}).get("similitud_coseno") or 0.0),
+                razon=razon_obj.get("razon", "cache"),
+                metodo=f"cache:{razon_obj.get('metodo', 'desconocido')}",
+                tokens_usados=0,
+                latencia_ms=(time.perf_counter() - t_pipeline_start) * 1000,
+                costo_usd=0.0,
+                lineage=cached_lineage,
+            )
+    except Exception as _cache_exc:
+        logger.debug("Cache lookup falló (no bloqueante): %s", _cache_exc)
+
+    # ══════════════════════════════════════════════════════════════════
+    # PRE-CAPA: Rechazo por ratio de precios extremo (> 3x)
+    # Indica productos de distinta cantidad de venta (ej: 1 unidad vs 100)
+    # ══════════════════════════════════════════════════════════════════
+    _precio_a = producto_a.precio_oferta or producto_a.precio_clp or 0
+    _precio_b = producto_b.precio_oferta or producto_b.precio_clp or 0
+    if _precio_a > 0 and _precio_b > 0:
+        _ratio = max(_precio_a, _precio_b) / min(_precio_a, _precio_b)
+        if _ratio > 3:
+            _razon_ratio = f"Ratio de precios {_ratio:.1f}x sugiere unidades de venta incompatibles"
+            logger.info("Ratio rechazo (%s vs %s): %s", producto_a.sku_proveedor, producto_b.sku_proveedor, _razon_ratio)
+            resultado = MatchResult(
+                es_mismo_producto=False, confidence_score=0.0, similitud_coseno=0.0,
+                razon=_razon_ratio, metodo="ratio_precio_rechazo",
+                latencia_ms=(time.perf_counter() - t_pipeline_start) * 1000, lineage=lineage,
+            )
+            _guardar_comparacion(producto_a, producto_b, resultado, db)
+            return resultado
 
     # ══════════════════════════════════════════════════════════════════
     # CAPA 0: ETIM TAXONOMY — Rechazo rápido por clase de producto

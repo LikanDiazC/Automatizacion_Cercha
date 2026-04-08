@@ -82,6 +82,16 @@ def _encontrar_precio(obj: Any, max_depth: int = 5) -> Optional[float]:
     if max_depth <= 0:
         return None
     if isinstance(obj, dict):
+        # Estructura Easy: { "prices": { "salePrice": X, "normalPrice": Y } }
+        prices_obj = obj.get("prices")
+        if isinstance(prices_obj, dict):
+            for k in ("salePrice", "offerPrice", "normalPrice"):
+                val = prices_obj.get(k)
+                if val is not None and val != "" and val != 0:
+                    v = _limpiar_precio(val)
+                    if v and v > 10:
+                        return v
+
         for k in ["priceWithoutFormatting", "Price", "price", "sellingPrice", "offerPrice", "bestPrice"]:
             val = obj.get(k)
             if val is not None and val != "":
@@ -183,7 +193,7 @@ def _aspirar_productos(data: Any, recolectados: list) -> None:
             _aspirar_productos(item, recolectados)
 
 
-async def _human_delay(min_ms: int = 300, max_ms: int = 1000) -> None:
+async def _human_delay(min_ms: int = 1000, max_ms: int = 3000) -> None:
     await asyncio.sleep(random.uniform(min_ms / 1000, max_ms / 1000))
 
 
@@ -263,10 +273,19 @@ class SodimacScraper:
             url = f"https://www.sodimac.cl/sodimac-cl/search?Ntt={quote_plus(query)}"
 
             print(f"🟢 [Sodimac] Navegando a {url}")
-            await page.goto(url, wait_until="domcontentloaded", timeout=TIMEOUT_BROWSER_MS)
-            await asyncio.sleep(2)
+            resp = await page.goto(url, wait_until="domcontentloaded", timeout=TIMEOUT_BROWSER_MS)
+            if resp and resp.status in (403, 429):
+                logger.warning("[Sodimac] WAF bloqueó la request: status=%s", resp.status)
+                return ResultadoScraper(
+                    proveedor=NombreProveedor.SODIMAC,
+                    estado=EstadoScraping.BLOQUEADO,
+                    error_msg=f"WAF bloqueó la request (HTTP {resp.status})",
+                    duracion_seg=asyncio.get_event_loop().time() - inicio,
+                )
+            await _human_delay()
 
             html = await page.content()
+            html = html[:10_000_000]  # limitar a 10MB para evitar OOM
             match = re.search(
                 r'<script id="__NEXT_DATA__" type="application/json">(.*?)</script>',
                 html,
@@ -451,16 +470,25 @@ class EasyScraper:
             search_url = f"{_EASY_BASE}/search/{quote_plus(query)}"
             print(f"[Easy] Navegando a {search_url}")
             try:
-                await page.goto(search_url, wait_until="domcontentloaded", timeout=TIMEOUT_BROWSER_MS)
+                easy_resp = await page.goto(search_url, wait_until="domcontentloaded", timeout=TIMEOUT_BROWSER_MS)
             except Exception:
                 # Fallback: URL legacy
                 search_url = f"{_EASY_BASE}/search?q={quote_plus(query)}"
                 print(f"[Easy] Fallback URL: {search_url}")
-                await page.goto(search_url, wait_until="domcontentloaded", timeout=TIMEOUT_BROWSER_MS)
+                easy_resp = await page.goto(search_url, wait_until="domcontentloaded", timeout=TIMEOUT_BROWSER_MS)
 
-            await asyncio.sleep(2)
+            if easy_resp and easy_resp.status in (403, 429):
+                logger.warning("[Easy] WAF bloqueó la request: status=%s", easy_resp.status)
+                return ResultadoScraper(
+                    proveedor=NombreProveedor.EASY,
+                    estado=EstadoScraping.BLOQUEADO,
+                    error_msg=f"WAF bloqueó la request (HTTP {easy_resp.status})",
+                    duracion_seg=asyncio.get_event_loop().time() - inicio,
+                )
+            await _human_delay()
 
             html = await page.content()
+            html = html[:10_000_000]  # limitar a 10MB para evitar OOM
 
             # Extraer __NEXT_DATA__
             match = re.search(

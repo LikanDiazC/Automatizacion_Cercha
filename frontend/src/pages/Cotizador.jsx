@@ -16,13 +16,13 @@ import {
   Tooltip,
 } from '@mui/material';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
 
 // ---------------------------------------------------------------------------
 // Constantes
 // ---------------------------------------------------------------------------
 
-const API = 'http://127.0.0.1:8000/api/compras';
+import { api } from '../services/api';
+const API_PATH = '/api/compras';
 
 const COLOR_SODIMAC = { bg: 'rgba(31,58,95,0.06)', border: 'rgba(31,58,95,0.22)', text: '#1f3a5f' };
 const COLOR_EASY    = { bg: 'rgba(60,207,145,0.08)', border: 'rgba(60,207,145,0.30)', text: '#0f6e47' };
@@ -368,15 +368,14 @@ function Cotizador() {
   const [familiaActiva, setFamiliaActiva] = useState('Todos');
   const [filtro, setFiltro]               = useState('');
   const [productoDetalle, setDetalle]     = useState(null);
-  const [syncing, setSyncing]             = useState(false);
-  const [syncMsg, setSyncMsg]             = useState('');
+  const [actualizando, setActualizando]   = useState(false);
 
-  // Cargar catalogo
+  // 1. Cargar catálogo desde caché (instantáneo)
   const cargarCatalogo = useCallback(async () => {
     try {
       const [catR, estR] = await Promise.all([
-        axios.get(`${API}/catalogo`),
-        axios.get(`${API}/catalogo/estado`),
+        api.get(`${API_PATH}/catalogo`),
+        api.get(`${API_PATH}/catalogo/estado`),
       ]);
       setCatalogo(catR.data || []);
       setEstado(estR.data || null);
@@ -387,7 +386,27 @@ function Cotizador() {
     }
   }, []);
 
-  useEffect(() => { cargarCatalogo(); }, [cargarCatalogo]);
+  // 2. Sync en background (no bloquea la UI)
+  const syncEnBackground = useCallback(async () => {
+    if (actualizando) return;
+    setActualizando(true);
+    try {
+      await api.post(`${API_PATH}/catalogo/sync`);
+      // Esperar 30s y recargar para mostrar precios frescos
+      await new Promise((r) => setTimeout(r, 30000));
+      await cargarCatalogo();
+    } catch (err) {
+      console.error('Error en sync background:', err);
+    } finally {
+      setActualizando(false);
+    }
+  }, [actualizando, cargarCatalogo]);
+
+  // Al montar: mostrar caché inmediatamente, luego sync en background
+  useEffect(() => {
+    cargarCatalogo().then(() => syncEnBackground());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Lista plana
   const todosProductos = catalogo.flatMap((f) =>
@@ -406,30 +425,6 @@ function Cotizador() {
   const conPrecio = productosFiltrados.filter((p) => p.precio_sodimac != null || p.precio_easy != null).length;
   const sinPrecio = productosFiltrados.length - conPrecio;
 
-  // Sync
-  const handleSync = async () => {
-    if (syncing) return;
-    setSyncing(true);
-    setSyncMsg('Sincronizacion iniciada... esto toma varios minutos.');
-    try {
-      await axios.post(`${API}/catalogo/sync`);
-      setSyncMsg('Sync en proceso. Recarga la pagina en unos minutos para ver precios actualizados.');
-    } catch { setSyncMsg('Error al iniciar sync.'); }
-    setTimeout(() => { setSyncing(false); setSyncMsg(''); }, 8000);
-  };
-
-  // Sync de un solo item
-  const handleSyncItem = async (query) => {
-    try {
-      await axios.post(`${API}/catalogo/sync-item`, {
-        query, proveedores: ['Sodimac', 'Easy'], max_resultados: 5,
-      }, { timeout: 90_000 });
-      await cargarCatalogo();
-    } catch (err) {
-      console.error('Error syncing:', err);
-    }
-  };
-
   if (cargando) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 2 }}>
@@ -445,10 +440,20 @@ function Cotizador() {
       {/* ---- HEADER ---- */}
       <Paper sx={{ p: 2.5, borderRadius: 3, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, alignItems: { md: 'center' } }}>
         <Box sx={{ flexGrow: 1 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>Catalogo de Materiales</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>Catalogo de Materiales</Typography>
+            {actualizando && (
+              <Chip
+                icon={<CircularProgress size={12} sx={{ color: 'inherit !important' }} />}
+                label="Actualizando precios..."
+                size="small"
+                sx={{ fontSize: '0.7rem', height: 22, backgroundColor: 'rgba(31,58,95,0.08)', color: '#1f3a5f' }}
+              />
+            )}
+          </Box>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
             {conPrecio} productos con precio
-            {sinPrecio > 0 ? ` \u2022 ${sinPrecio} pendientes de sync` : ''}
+            {sinPrecio > 0 ? ` \u2022 ${sinPrecio} pendientes` : ''}
             {estado?.ultimo_scraping && ` \u2022 Actualizado ${tiempoRelativo(estado.ultimo_scraping)}`}
           </Typography>
         </Box>
@@ -464,22 +469,7 @@ function Cotizador() {
             '& .MuiOutlinedInput-root': { borderRadius: 2, backgroundColor: '#fff' },
           }}
         />
-
-        {/* Sync */}
-        <Tooltip title="Escanea todos los productos en Sodimac y Easy">
-          <Button
-            variant="outlined" size="small"
-            onClick={handleSync} disabled={syncing}
-            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap' }}
-          >
-            {syncing ? 'Sincronizando...' : 'Actualizar precios'}
-          </Button>
-        </Tooltip>
       </Paper>
-
-      {syncMsg && (
-        <Alert severity="info" onClose={() => setSyncMsg('')} sx={{ borderRadius: 2 }}>{syncMsg}</Alert>
-      )}
 
       {/* ---- CHIPS DE FAMILIA ---- */}
       <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap', px: 0.5 }}>

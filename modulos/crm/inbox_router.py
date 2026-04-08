@@ -243,21 +243,30 @@ def empresas_detectadas(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Single-query con GROUP BY para evitar N+1: no cargamos las colecciones
+    # de contactos por cada empresa (eso disparaba una query por fila).
     rows = (
-        db.query(Empresa)
+        db.query(
+            Empresa.id,
+            Empresa.nombre,
+            Empresa.dominio_email,
+            func.count(Contacto.id).label("contactos_count"),
+        )
+        .outerjoin(Contacto, Contacto.empresa_id == Empresa.id)
         .filter(
             Empresa.user_id == current_user.id,
             Empresa.origen_inbox == True,  # noqa: E712
         )
+        .group_by(Empresa.id, Empresa.nombre, Empresa.dominio_email)
         .order_by(Empresa.nombre)
         .all()
     )
     return [
         {
-            "id": e.id,
-            "nombre": e.nombre,
-            "dominio_email": e.dominio_email,
-            "contactos_count": len(e.contactos or []),
+            "id": r.id,
+            "nombre": r.nombre,
+            "dominio_email": r.dominio_email,
+            "contactos_count": int(r.contactos_count or 0),
         }
-        for e in rows
+        for r in rows
     ]

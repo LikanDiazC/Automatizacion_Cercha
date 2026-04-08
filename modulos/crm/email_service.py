@@ -88,18 +88,36 @@ def _insertar_pixel_tracking(html: str, tracking_id: str) -> str:
     return html + pixel
 
 
+_SAFE_HREF_RE = re.compile(r"^https?://", re.IGNORECASE)
+
+
 def _reescribir_links(html: str, tracking_id: str) -> str:
     """
     Reemplaza todos los href="..." por redirect a través del tracking endpoint.
-    Excluye mailto: y links internos de tracking.
+    - Excluye mailto:, tel:, #, y links internos de tracking.
+    - **Sólo reescribe URLs con protocolo http(s)**. Los demás protocolos
+      (javascript:, data:, vbscript:, file:, etc.) se neutralizan
+      reemplazándolos por href="#" para prevenir XSS.
     """
     base = _get_base_url()
 
     def _reemplazar(match):
-        url_original = match.group(1)
-        # No reescribir mailto, tel, o links de tracking propios
-        if url_original.startswith(("mailto:", "tel:", "#")) or "/track/" in url_original:
+        url_original = match.group(1).strip()
+        lower = url_original.lower()
+
+        # Links seguros que dejamos pasar intactos
+        if lower.startswith(("mailto:", "tel:", "#")) or "/track/" in lower:
             return match.group(0)
+
+        # SÓLO http(s) son candidatos a reescritura. Cualquier otro
+        # esquema (javascript:, data:, vbscript:, …) se neutraliza.
+        if not _SAFE_HREF_RE.match(url_original):
+            logger.warning(
+                "Link con protocolo no permitido bloqueado en email tracking: %r",
+                url_original[:80],
+            )
+            return 'href="#"'
+
         encoded = quote(url_original, safe="")
         return f'href="{base}/api/crm/email/track/{tracking_id}/click?url={encoded}"'
 

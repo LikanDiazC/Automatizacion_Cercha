@@ -31,6 +31,13 @@ logger = logging.getLogger(__name__)
 _scheduler: Optional[AsyncIOScheduler] = None
 _ultimo_sync: Optional[dict] = None
 
+# Locks para prevenir ejecución concurrente de la misma tarea.
+# max_instances=1 de APScheduler sólo evita overlap en el mismo scheduler;
+# estos locks añaden una segunda línea de defensa contra sync manuales
+# disparados desde endpoints API en paralelo con el scheduler.
+_lock_sync_inbox: asyncio.Lock = asyncio.Lock()
+_lock_sync_precios: asyncio.Lock = asyncio.Lock()
+
 
 def get_scheduler() -> Optional[AsyncIOScheduler]:
     return _scheduler
@@ -52,6 +59,17 @@ async def _tarea_sync_precios():
     3. Crea canonicals con AI matching
     4. Registra cambios de precio en historial
     """
+    global _ultimo_sync
+
+    if _lock_sync_precios.locked():
+        logger.info("sync_precios: ya hay una ejecución en curso — skip")
+        return
+
+    async with _lock_sync_precios:
+        await _ejecutar_sync_precios()
+
+
+async def _ejecutar_sync_precios():
     global _ultimo_sync
 
     logger.info("=== SYNC AUTOMÁTICO INICIADO ===")
@@ -112,7 +130,7 @@ async def _tarea_sync_precios():
         )
 
     except Exception as exc:
-        logger.error("Error en sync automático: %s", exc, exc_info=True)
+        logger.exception("Error en sync automático")
         _ultimo_sync = {
             "timestamp": datetime.utcnow().isoformat(),
             "error": str(exc),
@@ -133,22 +151,30 @@ async def _tarea_sync_inbox():
     """
     Sincroniza la bandeja de entrada de todos los usuarios con sync habilitado.
     Ejecuta en segundo plano, jamás lanza excepciones hacia el scheduler.
+
+    Protegido con asyncio.Lock: si hay otra ejecución (manual o del propio
+    scheduler) en curso, salimos inmediatamente para evitar duplicar mensajes
+    por race condition en la detección de duplicados (message_id_remoto).
     """
-    logger.info("=== SYNC INBOX INICIADO ===")
-    db = SessionLocal()
-    try:
-        from modulos.crm.inbox_sync_service import sincronizar_todos_los_usuarios
-        resumen = await sincronizar_todos_los_usuarios(db)
-        logger.info(
-            "=== SYNC INBOX COMPLETADO: ok=%d err=%d nuevos=%d ===",
-            resumen.get("ok", 0),
-            resumen.get("errores", 0),
-            resumen.get("nuevos_total", 0),
-        )
-    except Exception as exc:
-        logger.error("Error en sync inbox: %s", exc, exc_info=True)
-    finally:
-        db.close()
+    if _lock_sync_inbox.locked():
+        logger.info("sync_inbox: ya hay una ejecución en curso — skip")
+        return
+    async with _lock_sync_inbox:
+        logger.info("=== SYNC INBOX INICIADO ===")
+        db = SessionLocal()
+        try:
+            from modulos.crm.inbox_sync_service import sincronizar_todos_los_usuarios
+            resumen = await sincronizar_todos_los_usuarios(db)
+            logger.info(
+                "=== SYNC INBOX COMPLETADO: ok=%d err=%d nuevos=%d ===",
+                resumen.get("ok", 0),
+                resumen.get("errores", 0),
+                resumen.get("nuevos_total", 0),
+            )
+        except Exception:
+            logger.exception("Error en sync inbox")
+        finally:
+            db.close()
 
 
 async def _tarea_cleanup():
@@ -168,8 +194,8 @@ async def _tarea_cleanup():
 
         db.commit()
         logger.info("Cleanup completado: %d registros de historial eliminados", eliminados)
-    except Exception as exc:
-        logger.error("Error en cleanup: %s", exc)
+    except Exception:
+        logger.exception("Error en cleanup")
         db.rollback()
     finally:
         db.close()

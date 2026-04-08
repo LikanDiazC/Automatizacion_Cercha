@@ -54,6 +54,13 @@ def _get_fernet() -> Fernet:
     raw = settings.inbox_encryption_key.strip() if settings.inbox_encryption_key else ""
 
     if not raw:
+        # En producción esto es fatal — nunca levantamos con clave efímera.
+        if settings.environment.lower() == "production":
+            raise RuntimeError(
+                "INBOX_ENCRYPTION_KEY es obligatoria en ENVIRONMENT=production. "
+                "Genera una con: python -c \"from cryptography.fernet import Fernet; "
+                "print(Fernet.generate_key().decode())\""
+            )
         # ⚠ Modo dev: generar clave efímera. NUNCA persistir nada importante con esto.
         ephemeral = Fernet.generate_key()
         logger.warning(
@@ -112,6 +119,11 @@ def _get_jwt_secret() -> str:
 
     raw = settings.jwt_secret_key.strip() if settings.jwt_secret_key else ""
     if not raw:
+        if settings.environment.lower() == "production":
+            raise RuntimeError(
+                "JWT_SECRET_KEY es obligatoria en ENVIRONMENT=production. "
+                "Genera una con: python -c \"import secrets; print(secrets.token_urlsafe(64))\""
+            )
         ephemeral = secrets.token_urlsafe(64)
         logger.warning(
             "JWT_SECRET_KEY no está definida en .env — se generó una clave efímera. "

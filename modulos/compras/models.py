@@ -145,7 +145,7 @@ class ProductoCanonical(Base):
     __tablename__ = "productos_canonical"
 
     id                  = Column(Integer, primary_key=True, index=True)
-    nombre_normalizado  = Column(String(300), nullable=False)
+    nombre_normalizado  = Column(String(300), nullable=False, index=True)
     descripcion         = Column(Text)
     unidad_base         = Column(String(60))             # Unidad estándar para comparar
     categoria           = Column(String(120), index=True)

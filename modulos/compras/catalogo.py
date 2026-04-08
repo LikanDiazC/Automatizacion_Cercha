@@ -302,14 +302,46 @@ def buscar_en_catalogo(db: Session, texto: str, limite: int = 50) -> list[dict]:
 # Sincronizacion (scraping + AI matching)
 # ---------------------------------------------------------------------------
 
-async def sync_catalogo(db: Session, max_resultados: int = 5) -> dict:
+SYNC_MIN_INTERVALO_HORAS: int = 4
+
+
+async def sync_catalogo(
+    db: Session,
+    max_resultados: int = 5,
+    forzar: bool = False,
+) -> dict:
     """
     Scrapea todos los queries predefinidos, persiste los productos,
     y ejecuta el pipeline de AI matching (canonical + embeddings).
+
+    Si ya se ejecutó un sync en las últimas SYNC_MIN_INTERVALO_HORAS,
+    salta (a menos que forzar=True). Esto evita:
+      - Duplicar scrapings disparados por UI + scheduler en paralelo.
+      - Consumir cuota LLM (embeddings) por ventanas redundantes.
     """
     from .ai_matcher import obtener_o_crear_canonical, generar_y_guardar_embedding
+    from datetime import timedelta
 
     inicio = datetime.utcnow()
+
+    if not forzar:
+        limite_rate = inicio - timedelta(hours=SYNC_MIN_INTERVALO_HORAS)
+        ultimo = (
+            db.query(ProductoProveedor.scraped_at)
+            .order_by(ProductoProveedor.scraped_at.desc())
+            .first()
+        )
+        if ultimo and ultimo[0] and ultimo[0] >= limite_rate:
+            logger.info(
+                "sync_catalogo: skip — último scraping hace <%dh (%s)",
+                SYNC_MIN_INTERVALO_HORAS, ultimo[0].isoformat(),
+            )
+            return {
+                "status": "skipped",
+                "razon": f"ultimo_scraping_hace_<{SYNC_MIN_INTERVALO_HORAS}h",
+                "ultimo_scraping": ultimo[0].isoformat(),
+            }
+
     proveedores = [NombreProveedor.SODIMAC, NombreProveedor.EASY]
 
     total_queries = len(QUERIES_SYNC)

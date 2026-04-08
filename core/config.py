@@ -86,6 +86,16 @@ class Settings(BaseSettings):
     cookie_samesite:  str  = "lax"  # "lax" | "strict" | "none"
     cookie_domain:    str  = ""
 
+    # ── Entorno / deployment ──
+    # "development" | "staging" | "production"
+    # En "production": las claves críticas (JWT, Fernet) son OBLIGATORIAS,
+    # se valida que ALLOWED_ORIGINS no tenga http://, se bloquea SQLite, etc.
+    environment:   str = "development"
+
+    # Whitelist de emails que pueden ser admin (CSV). Si vacío → nadie
+    # se marca admin automáticamente (hay que activarlo a mano en BD).
+    admin_emails:  str = ""
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
@@ -98,12 +108,46 @@ settings = get_settings()
 # ---------------------------------------------------------------------------
 # EXPORTACIÓN DE CONSTANTES (Requeridas por main.py y router.py)
 # ---------------------------------------------------------------------------
-ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in settings.allowed_origins.split(",")
-    if origin.strip()
-]
+def _parse_allowed_origins(raw: str, is_production: bool) -> list[str]:
+    """
+    Valida y parsea ALLOWED_ORIGINS.
+    - Rechaza entradas vacías o mal formadas.
+    - En producción exige scheme HTTPS y host válido.
+    """
+    from urllib.parse import urlparse
+
+    origins: list[str] = []
+    for item in raw.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        parsed = urlparse(item)
+        if not parsed.scheme or not parsed.netloc:
+            import warnings
+            warnings.warn(f"ALLOWED_ORIGINS ignorado (mal formado): {item}", stacklevel=2)
+            continue
+        if is_production and parsed.scheme != "https":
+            raise RuntimeError(
+                f"ENVIRONMENT=production pero ALLOWED_ORIGINS contiene origen no-HTTPS: {item}"
+            )
+        if parsed.scheme not in ("http", "https"):
+            import warnings
+            warnings.warn(f"ALLOWED_ORIGINS scheme no http/https: {item}", stacklevel=2)
+            continue
+        origins.append(f"{parsed.scheme}://{parsed.netloc}")
+    return origins
+
+
+IS_PRODUCTION = settings.environment.lower() == "production"
+
+ALLOWED_ORIGINS = _parse_allowed_origins(settings.allowed_origins, IS_PRODUCTION)
+
 DEFAULT_PAGE_SIZE = settings.default_page_size
 MAX_PAGE_SIZE     = settings.max_page_size
 ADMIN_TOKEN       = settings.admin_token   # None si no está en .env
 ADMIN_USER        = settings.admin_user    # None si no está en .env
+
+# Whitelist de emails con auto-admin (lowercased)
+ADMIN_EMAILS = frozenset(
+    e.strip().lower() for e in settings.admin_emails.split(",") if e.strip()
+)

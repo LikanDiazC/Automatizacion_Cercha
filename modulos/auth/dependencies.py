@@ -70,6 +70,12 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido",
         )
+    # Guard: sub debe ser entero positivo (evita id=0 / negativos)
+    if user_id <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido",
+        )
 
     user: Optional[User] = db.query(User).filter(User.id == user_id).first()
     if user is None:

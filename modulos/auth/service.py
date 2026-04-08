@@ -11,6 +11,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
+from core.config import ADMIN_EMAILS
 from core.security import encrypt_token, decrypt_token, redact, is_valid_email
 from .models import User, OAuthToken, SecurityAuditLog, OAuthProvider, AuditEvento
 from .oauth_clients import (
@@ -84,18 +85,24 @@ def upsert_user_from_oauth(
         .first()
     )
 
-    es_primer_usuario = db.query(User).count() == 0
+    email_lower = info.email.lower()
+
+    # Auto-admin: SOLO si el email está en la whitelist ADMIN_EMAILS.
+    # Si la whitelist está vacía, no se otorga admin a nadie automáticamente
+    # (hay que habilitarlo manualmente en BD). Esto cierra la escalada de
+    # privilegios trivial que existía antes (primer usuario = admin).
+    es_admin_inicial = email_lower in ADMIN_EMAILS
 
     if user is None:
         user = User(
             oauth_provider=provider,
             oauth_subject=info.subject,
-            email=info.email.lower(),
+            email=email_lower,
             nombre=info.nombre,
             avatar_url=info.avatar_url,
             locale=info.locale,
             activo=True,
-            is_admin=es_primer_usuario,  # primer login → admin
+            is_admin=es_admin_inicial,
             inbox_sync_enabled=True,
             created_at=datetime.utcnow(),
             last_login_at=datetime.utcnow(),
@@ -104,11 +111,11 @@ def upsert_user_from_oauth(
         db.flush()
         logger.info(
             "Nuevo usuario OAuth: id=%s provider=%s admin=%s",
-            user.id, provider.value, es_primer_usuario,
+            user.id, provider.value, es_admin_inicial,
         )
     else:
         # Actualizamos campos mutables; NUNCA tocamos id/oauth_subject/provider.
-        user.email = info.email.lower()
+        user.email = email_lower
         if info.nombre:
             user.nombre = info.nombre
         if info.avatar_url:

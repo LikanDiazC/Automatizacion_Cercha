@@ -126,6 +126,42 @@ export const authApi = {
   loginUrl: (provider) => `${API_BASE_URL}/api/auth/login/${provider}`,
 };
 
+// ── Helpers de Compras / Cotizador ──────────────────────────────────────────
+export const comprasApi = {
+  /** GET /api/compras/catalogo — catálogo cacheado (cache-first) */
+  catalogo: (params = {}) =>
+    api.get('/api/compras/catalogo', { params }).then((r) => r.data),
+
+  /** POST /api/compras/catalogo/sync — dispara sync background */
+  sync: () => api.post('/api/compras/catalogo/sync').then((r) => r.data),
+
+  /** GET /api/compras/buscar — búsqueda live (scraping en tiempo real) */
+  buscar: (query, params = {}) =>
+    api.get('/api/compras/buscar', { params: { query, ...params } }).then((r) => r.data),
+
+  /** POST /api/compras/comparar — fuerza comparación IA entre 2 productos */
+  comparar: (producto_a_id, producto_b_id) =>
+    api
+      .post('/api/compras/comparar', { producto_a_id, producto_b_id })
+      .then((r) => r.data),
+
+  /** GET /api/compras/carrito/:sessionKey */
+  getCarrito: (sessionKey) =>
+    api.get(`/api/compras/carrito/${sessionKey}`).then((r) => r.data),
+
+  /** POST /api/compras/carrito/:sessionKey/items */
+  addItem: (sessionKey, body) =>
+    api
+      .post(`/api/compras/carrito/${sessionKey}/items`, body)
+      .then((r) => r.data),
+
+  /** DELETE /api/compras/carrito/:sessionKey/items/:itemId */
+  removeItem: (sessionKey, itemId) =>
+    api
+      .delete(`/api/compras/carrito/${sessionKey}/items/${itemId}`)
+      .then((r) => r.data),
+};
+
 // ── Helpers de Inbox CRM ─────────────────────────────────────────────────────
 export const inboxApi = {
   /** GET /api/crm/inbox — lista mensajes con búsqueda opcional */

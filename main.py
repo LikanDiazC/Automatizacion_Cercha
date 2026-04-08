@@ -14,7 +14,9 @@ from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from core.config import ALLOWED_ORIGINS, settings
+from sqlalchemy import text as _sa_text
+
+from core.config import ALLOWED_ORIGINS, IS_PRODUCTION, settings
 from core.database import engine, Base
 from core.rate_limit import limiter
 
@@ -38,6 +40,19 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Bloqueo fatal: SQLite no es válido en producción (sin concurrencia real,
+    # sin tipo VECTOR, WAL inestable en write-heavy).
+    if IS_PRODUCTION and settings.database_url.startswith("sqlite"):
+        raise RuntimeError(
+            "ENVIRONMENT=production pero DATABASE_URL apunta a SQLite. "
+            "Usa PostgreSQL en producción."
+        )
+    if settings.database_url.startswith("sqlite"):
+        logger.warning(
+            "⚠️  DATABASE_URL usa SQLite — aceptable en desarrollo, NO en "
+            "producción (sin concurrencia real, sin pgvector)."
+        )
+
     # Advertencia de seguridad si las credenciales de admin no están configuradas
     if not settings.admin_user or not settings.admin_token:
         warnings.warn(
@@ -78,19 +93,35 @@ async def lifespan(app: FastAPI):
         ("contactos", "frecuencia_emails", "INTEGER DEFAULT 0"),
         ("contactos", "ultimo_email_at", "DATETIME"),
     ]
-    with engine.connect() as conn:
+    from sqlalchemy import inspect as _sa_inspect
+
+    _inspector = _sa_inspect(engine)
+
+    # Whitelist estricta: identificadores sólo alfanuméricos + guión bajo.
+    # Así nos defendemos contra SQLi incluso si alguien en el futuro
+    # contamina _migrate_columns desde fuente no confiable.
+    import re as _re
+    _IDENT_RE = _re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+    _TYPE_RE = _re.compile(r"^[A-Za-z0-9_()\s]+$")
+
+    with engine.begin() as conn:
+        existing_tables = set(_inspector.get_table_names())
         for table, column, col_type in _migrate_columns:
+            if not (_IDENT_RE.match(table) and _IDENT_RE.match(column) and _TYPE_RE.match(col_type)):
+                logger.error("Migración: identificador inválido (%s.%s %s)", table, column, col_type)
+                continue
+            if table not in existing_tables:
+                continue
+            existing_cols = {c["name"] for c in _inspector.get_columns(table)}
+            if column in existing_cols:
+                continue
             try:
                 conn.execute(
-                    __import__("sqlalchemy").text(
-                        f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"
-                    )
+                    _sa_text(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
                 )
-                conn.commit()
                 logger.info("Migración: agregada columna %s.%s", table, column)
             except Exception:
-                # La columna ya existe — ignorar silenciosamente
-                conn.rollback()
+                logger.exception("Migración falló en %s.%s", table, column)
 
     # Iniciar scheduler de sync de precios en segundo plano
     try:
@@ -152,8 +183,11 @@ async def value_error_handler(request: Request, exc: ValueError):
 
 @app.exception_handler(Exception)
 async def generic_error_handler(request: Request, exc: Exception):
-    import traceback
-    traceback.print_exc()
+    # Usamos logger.exception para enviar el stacktrace al sistema de logs
+    # estructurado en lugar de stderr directo. Nunca exponemos detalle al cliente.
+    logger.exception(
+        "Unhandled exception in %s %s", request.method, request.url.path
+    )
     return JSONResponse(
         status_code=500,
         content={"detail": "Error interno del servidor. Consulta los logs."},
