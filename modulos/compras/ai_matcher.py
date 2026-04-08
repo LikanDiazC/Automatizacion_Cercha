@@ -5,7 +5,7 @@ ARQUITECTURA v2:
   Pipeline de 5 capas con observabilidad completa:
     Capa 0 → ETIM Taxonomy (clasificación por clase de producto)
     Capa 1 → Unit Normalizer (quantulum3 + pint)
-    Capa 2 → Embeddings (Gemini gemini-embedding-001)
+    Capa 2 → Embeddings LOCALES (sentence-transformers — cercha-embedding-v1)
     Capa 3 → LLM Chain-of-Thought (Gemini 2.5-flash, 3-step CoT)
     Capa 4 → Jaccard Fallback (sin API key)
 
@@ -24,11 +24,14 @@ import hashlib
 import json
 import logging
 import math
+import os
 import random
 import re
 import asyncio
+import threading
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Optional
 
 import httpx
@@ -257,17 +260,33 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Configuración y umbrales
 # ---------------------------------------------------------------------------
-UMBRAL_MATCH_DIRECTO: float = 0.92
-UMBRAL_RECHAZO_DIRECTO: float = 0.60
+# Umbrales calibrados para embeddings LOCALES fine-tuneados con Triplet Loss.
+# El contrastive learning polariza fuerte los vectores: positivos tienden a
+# > 0.85 y negativos a < 0.40. Subimos el corte de match y bajamos el de
+# rechazo para aprovechar esa separabilidad (antes 0.92 / 0.60 para Gemini).
+UMBRAL_MATCH_DIRECTO: float = 0.85
+UMBRAL_RECHAZO_DIRECTO: float = 0.40
 UMBRAL_LLM_MATCH: float = 0.75
 
 # TTL del cache de comparaciones en ComparacionPrecios.
 # Evita re-llamar al LLM para el mismo par A/B durante 24h.
 COMPARACION_CACHE_TTL_HORAS: int = 24
-EMBEDDING_MODEL = "gemini-embedding-001"
+
+# ─────────────────────────────────────────────────────────────────────────
+# Capa 2 — Embeddings LOCALES (sentence-transformers fine-tuneado)
+# ─────────────────────────────────────────────────────────────────────────
+# Nombre del modelo local (se muestra en AICallLog y lineage).
+EMBEDDING_MODEL = "cercha-embedding-v1"
+# Ruta al modelo fine-tuneado con Triplet Loss sobre nuestro dataset acelerado.
+LOCAL_EMBEDDING_MODEL_PATH = "models/cercha-embedding-v1"
+# Fallback si la carpeta no existe (arranque en frío / entrenamiento pendiente).
+FALLBACK_EMBEDDING_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+
+# La Capa 3 (LLM) SIGUE usando Gemini 2.5-flash — NO tocar.
 LLM_MODEL = "gemini-2.5-flash"
 LLM_MAX_TOKENS_RESPUESTA = 2048
-EMBEDDING_DIM = 3072
+# MiniLM-L12-v2 produce vectores de 384 dimensiones.
+EMBEDDING_DIM = 384
 PROMPT_VERSION_TAG = "aawr_v1"
 
 # Penalización post-LLM por divergencia de precios.
@@ -278,7 +297,8 @@ PRICE_RATIO_PENALTY_THRESHOLD: float = 3.5
 # Costos estimados por token (Gemini pricing — ajustar según plan)
 _COST_PER_INPUT_TOKEN = 0.0000001    # $0.10 / 1M tokens
 _COST_PER_OUTPUT_TOKEN = 0.0000004   # $0.40 / 1M tokens
-_COST_PER_EMBEDDING_TOKEN = 0.00000001  # ~$0.01 / 1M tokens
+# Capa 2 ahora corre 100% local (sentence-transformers) → costo $0.
+_COST_PER_EMBEDDING_TOKEN = 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -438,8 +458,69 @@ def comparar_textualmente(
 
 
 # ---------------------------------------------------------------------------
-# Embeddings (Gemini)
+# Embeddings LOCALES — sentence-transformers fine-tuneado (Capa 2)
 # ---------------------------------------------------------------------------
+#
+# Trasplante de cerebro: se apagó la dependencia de Gemini Embeddings.
+# El modelo vive en disco (models/cercha-embedding-v1) y se carga una sola
+# vez en RAM usando un Singleton protegido con threading.Lock. La codificación
+# bloquea CPU, así que toda llamada se envuelve en asyncio.to_thread para no
+# bloquear el event loop de FastAPI.
+
+_embedding_model_lock = threading.Lock()
+_embedding_model_singleton = None  # type: Optional["SentenceTransformer"]  # noqa: F821
+_embedding_model_name_loaded: str = ""  # "cercha-embedding-v1" o fallback
+
+
+def _cargar_modelo_embeddings():
+    """
+    Singleton con carga perezosa + threading.Lock (double-checked locking).
+
+    Returns:
+        SentenceTransformer ya cargado en RAM, reutilizable en todas las
+        llamadas futuras del proceso.
+    """
+    global _embedding_model_singleton, _embedding_model_name_loaded
+
+    if _embedding_model_singleton is not None:
+        return _embedding_model_singleton
+
+    with _embedding_model_lock:
+        # Double-check: otro thread podría haberlo cargado mientras esperábamos.
+        if _embedding_model_singleton is not None:
+            return _embedding_model_singleton
+
+        try:
+            from sentence_transformers import SentenceTransformer  # type: ignore
+        except ImportError as e:  # pragma: no cover
+            raise RuntimeError(
+                "sentence-transformers no está instalado. "
+                "Ejecuta: pip install sentence-transformers"
+            ) from e
+
+        # Resolver ruta absoluta al modelo local desde la raíz del repo.
+        repo_root = Path(__file__).resolve().parents[2]
+        modelo_path = repo_root / LOCAL_EMBEDDING_MODEL_PATH
+
+        if modelo_path.is_dir():
+            logger.info("[Capa 2] Cargando modelo LOCAL fine-tuneado: %s", modelo_path)
+            _embedding_model_singleton = SentenceTransformer(str(modelo_path))
+            _embedding_model_name_loaded = EMBEDDING_MODEL  # "cercha-embedding-v1"
+        else:
+            logger.warning(
+                "[Capa 2] No se encontró %s — usando fallback base: %s",
+                modelo_path, FALLBACK_EMBEDDING_MODEL,
+            )
+            _embedding_model_singleton = SentenceTransformer(FALLBACK_EMBEDDING_MODEL)
+            _embedding_model_name_loaded = FALLBACK_EMBEDDING_MODEL
+
+        logger.info(
+            "[Capa 2] Modelo cargado en RAM: %s (dim=%s)",
+            _embedding_model_name_loaded,
+            getattr(_embedding_model_singleton, "get_sentence_embedding_dimension", lambda: "?")(),
+        )
+        return _embedding_model_singleton
+
 
 def _construir_texto_embedding(producto: ProductoProveedor) -> str:
     unit_text = normalized_unit_text(producto.nombre_raw, producto.unidad or "")
@@ -452,37 +533,48 @@ def _construir_texto_embedding(producto: ProductoProveedor) -> str:
     return " | ".join(p for p in partes if p).strip()
 
 
+def _encode_sync(texto: str) -> list[float]:
+    """
+    Wrapper síncrono y CPU-bound para el encode del modelo.
+    Se ejecuta desde `asyncio.to_thread` para no bloquear el event loop.
+    """
+    modelo = _cargar_modelo_embeddings()
+    vec = modelo.encode(
+        texto[:8000],
+        convert_to_numpy=True,
+        normalize_embeddings=True,  # coseno ≡ producto punto ⇒ más rápido
+        show_progress_bar=False,
+    )
+    # SentenceTransformer retorna np.ndarray; lo volvemos lista de floats
+    # para mantener compatibilidad binaria con similitud_coseno/JSON.
+    return [float(x) for x in vec.tolist()]
+
+
 async def generar_embedding(texto: str) -> EmbeddingResult:
+    """
+    Genera un embedding usando el modelo LOCAL (costo $0).
+
+    Mantiene la misma firma y tipo de retorno (`EmbeddingResult`) que la
+    versión Gemini para no romper a los consumidores.
+    """
     if not texto or not texto.strip():
         raise ValueError("No se puede generar embedding de texto vacío")
 
     t0 = time.perf_counter()
-    payload = {
-        "model": EMBEDDING_MODEL,
-        "input": texto[:8000],
-        "encoding_format": "float",
-    }
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        respuesta = await client.post(
-            "https://generativelanguage.googleapis.com/v1beta/openai/v1/embeddings",
-            headers=_get_openai_headers(),
-            json=payload,
-        )
-
+    vector = await asyncio.to_thread(_encode_sync, texto)
     lat = (time.perf_counter() - t0) * 1000
 
-    if respuesta.status_code != 200:
-        raise RuntimeError(f"Error Embeddings [{respuesta.status_code}]: {respuesta.text[:300]}")
-
-    data = respuesta.json()
-    tokens = data.get("usage", {}).get("prompt_tokens", 0)
-
     return EmbeddingResult(
-        vector=data["data"][0]["embedding"],
-        tokens_input=tokens,
+        vector=vector,
+        tokens_input=0,          # local — no hay tokens cobrables
         modelo=EMBEDDING_MODEL,
         latencia_ms=lat,
     )
+
+
+# Alias explícito solicitado por el brief para quienes prefieran el nombre
+# "generar_embedding_local" en llamadas futuras.
+generar_embedding_local = generar_embedding
 
 
 async def generar_y_guardar_embedding(
@@ -494,7 +586,7 @@ async def generar_y_guardar_embedding(
 
     # Skip productos sin precio: suelen ser listados "fantasma" (sin stock
     # o con error de scraping). Generar embedding para ellos es desperdicio
-    # de cuota LLM y contamina búsquedas.
+    # y contamina búsquedas, incluso con modelo local (CPU time).
     _precio = (producto.precio_oferta or producto.precio_clp or 0) or 0
     if _precio <= 0:
         raise ValueError(f"Producto {producto.id} sin precio — embedding omitido")
@@ -505,9 +597,13 @@ async def generar_y_guardar_embedding(
     db.add(producto)
     db.commit()
 
+    # Métricas actualizadas para modelo local:
+    #   • costo_usd  → 0.0 (explícito, se fuerza vía _COST_PER_EMBEDDING_TOKEN=0)
+    #   • tokens     → len(texto) como proxy no-cobrable
+    #   • modelo     → "cercha-embedding-v1"
     _log_ai_call(
         db, call_type="embedding", latencia_ms=resultado.latencia_ms,
-        modelo=EMBEDDING_MODEL, tokens_input=resultado.tokens_input,
+        modelo=EMBEDDING_MODEL, tokens_input=len(texto),
         producto_a_id=producto.id, input_preview=texto, exitoso=True,
     )
 
@@ -1190,7 +1286,12 @@ async def comparar_productos(
 
     sim = similitud_coseno(vec_a, vec_b)
     emb_lat = (time.perf_counter() - t0) * 1000
-    lineage["embedding"] = {"similitud_coseno": round(sim, 4), "latencia_ms": round(emb_lat, 2)}
+    lineage["embedding"] = {
+        "modelo": EMBEDDING_MODEL,
+        "similitud_coseno": round(sim, 4),
+        "latencia_ms": round(emb_lat, 2),
+        "costo_usd": 0.0,
+    }
 
     if sim >= UMBRAL_MATCH_DIRECTO:
         total_lat = etim_lat + unit_lat + emb_lat
